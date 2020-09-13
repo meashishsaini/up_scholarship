@@ -10,14 +10,14 @@ class UrlProviders:
 
 	def get_base_url(self) -> str:
 		if self.cd.current_form_set == FormSets.one:
-			return 'http://scholarship.up.nic.in/'
+			return 'https://scholarship.up.gov.in/'
 		elif self.cd.current_form_set == FormSets.two:
 			return 'http://164.100.181.104/'
 		elif self.cd.current_form_set == FormSets.three:
 			return 'http://164.100.181.105/scholarship/'
 		else:
 			# return 'http://pfms.upsdc.gov.in/sch1920/'
-			return "http://scholarship.up.nic.in/"
+			return "https://scholarship.up.gov.in/"
 
 	def get_captcha_url(self) -> str:
 		return self.get_base_url() + 'captcha.ashx?id=' + repr(random.random())

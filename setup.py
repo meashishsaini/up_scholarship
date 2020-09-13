@@ -3,6 +3,7 @@ from setuptools import setup
 def readme():
 	with open("README.rst") as f:
 		return f.read()
+
 install_requires = [
 	"scrapy",
 	"openpyxl",
@@ -15,11 +16,12 @@ install_requires = [
 	"pyperclip",
 	"dlib",
 	"pyinsane2",
-	"rich"
+	"rich",
+	"D:\Data\Projects\python\scan_helper"
 ]
 
 setup(name="up-scholarship",
-	version="0.1",
+	version="0.2",
 	description="Scripts to fill scholarship forms",
 	long_description=readme(),
 	classifiers=[
