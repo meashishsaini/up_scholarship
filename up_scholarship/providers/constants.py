@@ -61,7 +61,7 @@ class FormSets(Enum):
 
 @dataclass
 class CommonData:
-	max_tries = 3
+	max_tries = 5
 	data_dir = 'up_scholarship/data/'
 	current_year = str(datetime.now().year)
 	students_in_file = data_dir + 'students/%s/Students.xlsx' % current_year
@@ -806,6 +806,18 @@ class FormKeys:
 	@classmethod
 	def app_forwarded(cls):
 		return 'app_forwarded'
+	
+	@classmethod
+	def is_pic_upload(cls):
+		return cls.prefix + 'IsPicUpload'
+
+	@classmethod
+	def is_handi_upload(cls):
+		return cls.prefix + 'IsHandiUpload'
+
+	@classmethod
+	def handi_type(cls):
+		return cls.prefix + 'HandiType'
 
 	@classmethod
 	def hf(cls, current_form_set, form=False):
@@ -829,7 +841,7 @@ class FormKeys:
 	@classmethod
 	def upload_photo(cls, current_form_set, form=False, pre=True, renewal=False):
 		if form:
-			return cls.prefix + ('upload' if pre and renewal else 'upload_photo')
+			return cls.prefix + 'upload_photo'
 		else:
 			r = 'ContentPlaceHolder1_upload'
 			if current_form_set == FormSets.one:

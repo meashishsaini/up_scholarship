@@ -20,7 +20,9 @@ from twisted.internet.error import TimeoutError, TCPTimedOutError
 from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
 from up_scholarship.providers.codes import CodeFileReader
 from scrapy.http import Request
+import logging
 
+logger = logging.getLogger(__name__)
 
 class UploadPhotoSpider(scrapy.Spider):
 	name = 'uploadphoto'
@@ -48,6 +50,7 @@ class UploadPhotoSpider(scrapy.Spider):
 		self.no_students = len(self.students)
 		self.url_provider = UrlProviders(self.cd)
 		self.religion = CodeFileReader(self.cd.religion_file)
+		logging.getLogger('scrapy').setLevel(logging.ERROR)
 
 	def start_requests(self):
 		self.i_students = self.skip_to_next_valid()
@@ -58,7 +61,7 @@ class UploadPhotoSpider(scrapy.Spider):
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 
 	def login_form(self, response):
-		self.logger.info('In login form. Last Url: %s', response.url)
+		logger.info('In login form. Last Url: %s', response.url)
 		if self.process_errors(response, TestStrings.error, html=False):
 			self.save_if_done()
 			student = self.students[self.i_students]
@@ -89,24 +92,25 @@ class UploadPhotoSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		'''
-		self.logger.info('In accept popup. Last URL: %s', response.url)
+		logger.info('In accept popup. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error) or self.process_errors(response, TestStrings.login):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 		# Got default response, means popup has been accepted.
 		elif response.url.lower().find(TestStrings.app_default) != -1:
-			self.logger.info('Got default response url %s', response.url)
+			logger.info('Got default response url %s', response.url)
 			# Extract appid for url
 			parsed = urlparse.urlparse(response.url)
 			app_id = urlparse.parse_qs(parsed.query)['Appid'][0]
 
 			student = self.students[self.i_students]
 			url = self.url_provider.get_photo_up_url(student.get(FormKeys.std(), ''), app_id, self.is_renewal)
+			logger.info("URL: %s", url)
 			yield scrapy.Request(url=url, callback=self.upload_photo, dont_filter=True, errback=self.errback_next)
 		# Popup might not have been accepted, accept it
 		else:
-			self.logger.info('Accepting popup. Last URL: %s', response.url)
+			logger.info('Accepting popup. Last URL: %s', response.url)
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata={
@@ -120,7 +124,7 @@ class UploadPhotoSpider(scrapy.Spider):
 			yield request
 
 	def upload_photo(self, response):
-		self.logger.info('In upload photo. Last URL: %s', response.url)
+		logger.info('In upload photo. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, html=False, captcha_check=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student[FormKeys.std()], self.is_renewal)
@@ -146,12 +150,16 @@ class UploadPhotoSpider(scrapy.Spider):
 						(FormKeys.view_state_generator(), viewstategenerater),
 						(FormKeys.view_state_encrypted(), ''),
 						(FormKeys.event_validation(), eventvalidation),
-						(FormKeys.upload_photo(self.cd.current_form_set, form=True, pre=pre, renewal=self.is_renewal),
+						(FormKeys.upload_photo(self.cd.current_form_set, form=True),
 							'Upload Photo')]
+				if not pre:
+					fields.append((FormKeys.is_pic_upload(), "Y"))
+					fields.append((FormKeys.is_handi_upload(), ""))
+					fields.append((FormKeys.handi_type(), "0"))
 
 				files = [(FormKeys.upload_photo_name(form=True), student[FormKeys.aadhaar_no()] + ".jpg", open(filename, 'rb'))]
-				self.logger.info('Photo file %s', files)
-				self.logger.info('Photo fields %s', fields)
+				logger.info('Photo file %s', files)
+				logger.info('Photo fields %s', fields)
 				content_type, body = utl.MultipartFormDataEncoder().encode(fields, files)
 				headers['Content-Type'] = content_type
 				headers['Content-length'] = str(len(body))
@@ -169,7 +177,7 @@ class UploadPhotoSpider(scrapy.Spider):
 				yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 
 	def parse(self, response):
-		self.logger.info('Parse Got URL: %s', response.url)
+		logger.info('Parse Got URL: %s', response.url)
 		student = self.students[self.i_students]
 
 		upload_status = ''
@@ -182,7 +190,7 @@ class UploadPhotoSpider(scrapy.Spider):
 			student[FormKeys.photo_uploaded()] = 'Y'
 			student[FormKeys.status()] = 'Success'
 			self.students[self.i_students] = student
-			self.logger.info("----------------Photo successfully uploaded---------------")
+			logger.info("----------------Photo successfully uploaded---------------")
 			print("----------------Photo successfully uploaded---------------")
 			self.i_students += 1
 			self.i_students = self.skip_to_next_valid()
@@ -197,24 +205,24 @@ class UploadPhotoSpider(scrapy.Spider):
 
 	def errback_next(self, failure):
 		# log all failures
-		self.logger.error(repr(failure))
+		logger.error(repr(failure))
 
 		errorstr = repr(failure)
 		if failure.check(HttpError):
 			# these exceptions come from HttpError spider middleware
 			response = failure.value.response
-			self.logger.error('HttpError on %s', response.url)
+			logger.error('HttpError on %s', response.url)
 			errorstr = 'HttpError on ' + response.url
 
 		elif failure.check(DNSLookupError):
 			# this is the original request
 			request = failure.request
-			self.logger.error('DNSLookupError on %s', request.url)
+			logger.error('DNSLookupError on %s', request.url)
 			errorstr = 'DNSLookupError on ' + request.url
 
 		elif failure.check(TimeoutError, TCPTimedOutError):
 			request = failure.request
-			self.logger.error('TimeoutError on %s', request.url)
+			logger.error('TimeoutError on %s', request.url)
 			errorstr = 'TimeoutError on ' + request.url
 		student = self.students[self.i_students]
 		student[FormKeys.status()] = errorstr
@@ -288,16 +296,16 @@ class UploadPhotoSpider(scrapy.Spider):
 				# If we have old registration no. in student's list set it to renewal.
 				if student.get(FormKeys.old_reg_no(), '') != '':
 					self.is_renewal = True
-					self.logger.info('Application is renewal')
+					logger.info('Application is renewal')
 					if utl.get_std_category(student[FormKeys.std()]) == StdCategory.pre:
-						self.url_provider.set_form_set(FormSets.four)
+						self.cd.set_form_set(FormSets.four)
 				else:
 					self.is_renewal = False
 				break
 		# If return index is not -1 return it or else return total no. of students.
 		if (return_index != -1):
 			student = self.students[return_index]
-			print('Uploading photo of: ' + student[FormKeys.name()] + ' of std: ' + student[FormKeys.std()])
+			logger.info('Uploading photo of: ' + student[FormKeys.name()] + ' of std: ' + student[FormKeys.std()])
 			return return_index
 		else:
 			return self.no_students
@@ -349,7 +357,7 @@ class UploadPhotoSpider(scrapy.Spider):
 			# Check if we have reached max retries and then move to other students, if available
 			if self.tried >= self.cd.max_tries:
 				student[FormKeys.status()] = errorstr
-				self.logger.info(errorstr)
+				logger.info(errorstr)
 				self.students[self.i_students] = student
 				self.err_students.append(student)
 				self.i_students += 1
