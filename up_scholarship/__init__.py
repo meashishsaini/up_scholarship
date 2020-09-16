@@ -5,7 +5,7 @@ import os
 filename = os.path.dirname(__file__) + "/logs.log"
 
 # get handler
-rotating_file_handler = RotatingFileHandler(filename=filename)
+rotating_file_handler = RotatingFileHandler(filename=filename, mode="w", encoding="utf-8")
 rotating_file_handler.setLevel(logging.INFO)
 # create formatter
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
