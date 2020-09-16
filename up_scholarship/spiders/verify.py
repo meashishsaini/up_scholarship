@@ -13,6 +13,7 @@ from datetime import datetime
 import urllib.parse as urlparse
 from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
 
+logger = logging.getLogger(__name__)
 
 class VerifyAppSpider(scrapy.Spider):
 	name = 'verify'
@@ -28,8 +29,7 @@ class VerifyAppSpider(scrapy.Spider):
 	def __init__(self, *args, **kwargs):
 		""" Load student's file and init variables"""
 		super(VerifyAppSpider, self).__init__(*args, **kwargs)
-		requests_logger = logging.getLogger('scrapy')
-		requests_logger.setLevel(logging.ERROR)
+		logging.getLogger('scrapy').setLevel(logging.ERROR)
 		self.cd = CommonData()
 		self.students = StudentFile().read_file(self.cd.students_in_file, self.cd.file_in_type)
 		self.no_students = len(self.students)
@@ -57,7 +57,7 @@ class VerifyAppSpider(scrapy.Spider):
 				Keyword arguments:
 				response -- previous scrapy response.
 		"""
-		self.logger.info('In get school. Last URL: %s', response.url)
+		logger.info('In get school. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, captcha_check=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_institute_login_url(student.get(FormKeys.std(), ''))
@@ -86,7 +86,7 @@ class VerifyAppSpider(scrapy.Spider):
 				Keyword arguments:
 				response -- previous scrapy response.
 		"""
-		self.logger.info('In get school. Last URL: %s', response.url)
+		logger.info('In get school. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, captcha_check=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_institute_login_url(student.get(FormKeys.std(), ''))
@@ -115,7 +115,7 @@ class VerifyAppSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In login form. Last URL: %s', response.url)
+		logger.info('In login form. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, html=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_institute_login_url(student.get(FormKeys.std(), ''))
@@ -147,7 +147,7 @@ class VerifyAppSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In verify_page. Last URL: %s', response.url)
+		logger.info('In verify_page. Last URL: %s', response.url)
 		student = self.students[self.i_students]
 		if self.process_errors(response, TestStrings.error) or \
 			response.url.lower().find(TestStrings.institute_login_success.lower()) == -1:
@@ -163,7 +163,7 @@ class VerifyAppSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In search_application_number. Last URL: %s', response.url)
+		logger.info('In search_application_number. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, captcha_check=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_institute_login_url(student.get(FormKeys.std(), ''))
@@ -191,7 +191,7 @@ class VerifyAppSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In verify. Last URL: %s', response.url)
+		logger.info('In verify. Last URL: %s', response.url)
 		student = self.students[self.i_students]
 		app_id = response.xpath('//*[@id="%s"]//text()' % FormKeys.first_app_id())
 		if self.process_errors(response, TestStrings.error, captcha_check=False):
@@ -200,7 +200,7 @@ class VerifyAppSpider(scrapy.Spider):
 			yield scrapy.Request(url=url, callback=self.get_district, dont_filter=True, errback=self.errback_next)
 		elif not app_id and app_id.extract_first() != student[FormKeys.reg_no()]:
 			message = "Application registration number not found."
-			self.logger.info(message)
+			logger.info(message)
 			student[FormKeys.status()] = message
 			self.students[self.i_students] = student
 			self.i_students = self.i_students + 1
@@ -254,7 +254,7 @@ class VerifyAppSpider(scrapy.Spider):
 					Keyword arguments:
 					response -- previous scrapy response.
 		"""
-		self.logger.info('In parse. Last URL: %s', response.url)
+		logger.info('In parse. Last URL: %s', response.url)
 		scripts = response.xpath('//script/text()').extract()
 		application_verified = scripts and scripts[0].find(TestStrings.application_verified) != -1
 		if not application_verified and self.process_errors(response, TestStrings.error, captcha_check=False):
@@ -271,7 +271,7 @@ class VerifyAppSpider(scrapy.Spider):
 				message = "Unable to verify application."
 				student[FormKeys.status()] = message
 				student[FormKeys.app_verified()] = "N"
-			self.logger.info(message)
+			logger.info(message)
 			self.students[self.i_students] = student
 			self.i_students = self.i_students + 1
 			self.i_students = self.skip_to_next_valid()
@@ -281,7 +281,7 @@ class VerifyAppSpider(scrapy.Spider):
 					url=url, callback=self.search_application_number, dont_filter=True, errback=self.errback_next)
 
 	def get_captcha(self, response):
-		self.logger.info("In Captcha. Last URL " + response.url)
+		logger.info("In Captcha. Last URL " + response.url)
 		if self.process_errors(response, TestStrings.error, html=True, captcha_check=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -344,12 +344,12 @@ class VerifyAppSpider(scrapy.Spider):
 				# If we have old registration no. in student's list set it to renewal.
 				self.is_renewal = student.get(FormKeys.old_reg_no(), '') != ''
 				if self.is_renewal:
-					self.logger.info('Application is renewal')
+					logger.info('Application is renewal')
 				break
 		# If return index is not -1 return it or else return total no. of students.
 		if return_index != -1:
 			student = self.students[return_index]
-			self.logger.info(
+			logger.info(
 				'Verifying application of: ' + student.get(FormKeys.name(), '') + ' of std: ' + student.get(
 					FormKeys.std(), ''))
 			return return_index
@@ -403,7 +403,7 @@ class VerifyAppSpider(scrapy.Spider):
 			# Check if we have reached max retries and then move to other students, if available
 			if self.tried >= self.cd.max_tries:
 				student[FormKeys.status()] = errorstr
-				self.logger.info(errorstr)
+				logger.info(errorstr)
 				self.students[self.i_students] = student
 				self.err_students.append(student)
 				self.i_students += 1
@@ -442,23 +442,23 @@ class VerifyAppSpider(scrapy.Spider):
 			failure -- previous scrapy network failure.
 		"""
 		# log all failures
-		self.logger.error(repr(failure))
+		logger.error(repr(failure))
 		errorstr = repr(failure)
 		if failure.check(HttpError):
 			# these exceptions come from HttpError spider middleware
 			response = failure.value.response
-			self.logger.error('HttpError on %s', response.url)
+			logger.error('HttpError on %s', response.url)
 			errorstr = 'HttpError on ' + response.url
 
 		elif failure.check(DNSLookupError):
 			# this is the original request
 			request = failure.request
-			self.logger.error('DNSLookupError on %s', request.url)
+			logger.error('DNSLookupError on %s', request.url)
 			errorstr = 'DNSLookupError on ' + request.url
 
 		elif failure.check(TimeoutError, TCPTimedOutError):
 			request = failure.request
-			self.logger.error('TimeoutError on %s', request.url)
+			logger.error('TimeoutError on %s', request.url)
 			errorstr = 'TimeoutError on ' + request.url
 
 		# Close spider if we encounter above errors.
