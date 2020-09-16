@@ -16,6 +16,7 @@ from twisted.internet.error import TimeoutError, TCPTimedOutError
 from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
 import logging
 
+logger = logging.getLogger(__name__)
 
 class SubmitDataspider(scrapy.Spider):
 	name = 'submitcheck'
@@ -32,8 +33,7 @@ class SubmitDataspider(scrapy.Spider):
 	def __init__(self, *args, **kwargs):
 		""" Load student's file and init variables"""
 		super(SubmitDataspider, self).__init__(*args, **kwargs)
-		requests_logger = logging.getLogger('scrapy')
-		requests_logger.setLevel(logging.ERROR)
+		logging.getLogger('scrapy').setLevel(logging.ERROR)
 		self.cd = CommonData()
 		self.students = StudentFile().read_file(self.cd.students_in_file, self.cd.file_in_type)
 		self.no_students = len(self.students)
@@ -48,7 +48,7 @@ class SubmitDataspider(scrapy.Spider):
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 
 	def login_form(self, response):
-		self.logger.info('In login form. Last Url: %s', response.url)
+		logger.info('In login form. Last Url: %s', response.url)
 		if self.process_errors(response, TestStrings.error, html=False):
 			self.save_if_done()
 			student = self.students[self.i_students]
@@ -79,14 +79,14 @@ class SubmitDataspider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In accept popup. Last URL: %s', response.url)
+		logger.info('In accept popup. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error) or self.process_errors(response, TestStrings.login):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 		# Got default response, means popup has been accepted.
 		elif response.url.lower().find(TestStrings.app_default) != -1:
-			self.logger.info('Got default response url %s', response.url)
+			logger.info('Got default response url %s', response.url)
 			# Extract appid for url
 			parsed = urlparse.urlparse(response.url)
 			app_id = urlparse.parse_qs(parsed.query)['Appid'][0]
@@ -98,7 +98,7 @@ class SubmitDataspider(scrapy.Spider):
 			yield request
 		# Popup might not have been accepted, accept it
 		else:
-			self.logger.info('Accepting popup. Last URL: %s', response.url)
+			logger.info('Accepting popup. Last URL: %s', response.url)
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata={
@@ -112,7 +112,7 @@ class SubmitDataspider(scrapy.Spider):
 			yield request
 
 	def save_print(self, response):
-		self.logger.info('In save print. Last URL: %s', response.url)
+		logger.info('In save print. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, captcha_check=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -120,7 +120,7 @@ class SubmitDataspider(scrapy.Spider):
 		else:
 			student = self.students[self.i_students]
 
-			self.logger.info('Saving student\'s check page')
+			logger.info('Saving student\'s check page')
 
 			utl.save_file_with_name(student, response, WorkType.submit_check, str(datetime.today().year),
 									extra="/checkprint")
@@ -135,7 +135,7 @@ class SubmitDataspider(scrapy.Spider):
 			yield request
 
 	def save_img(self, response):
-		self.logger.info('In save img. Last URL: %s', response.url)
+		logger.info('In save img. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, captcha_check=False, html=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -146,7 +146,7 @@ class SubmitDataspider(scrapy.Spider):
 			f = parsed.path.split('/')
 			f = f[len(f) - 1]
 
-			self.logger.info('Saving student\'s image')
+			logger.info('Saving student\'s image')
 			utl.save_file_with_name(student, response, WorkType.submit_check, str(datetime.today().year), extension="",
 									extra='/' + f)
 
@@ -163,7 +163,7 @@ class SubmitDataspider(scrapy.Spider):
 			yield request
 
 	def parse(self, response):
-		self.logger.info('In parse. Last URL: %s', response.url)
+		logger.info('In parse. Last URL: %s', response.url)
 		student = self.students[self.i_students]
 		locked_request = response.xpath(
 			'//*[@id="' + FormKeys.temp_submit_lock(self.cd.current_form_set) + '"]').extract_first()
@@ -171,7 +171,7 @@ class SubmitDataspider(scrapy.Spider):
 			student[FormKeys.submitted_for_check()] = 'Y'
 			student[FormKeys.status()] = 'Success'
 			self.students[self.i_students] = student
-			self.logger.info("----------------Application got submitted for checking---------------")
+			logger.info("----------------Application got submitted for checking---------------")
 			print("----------------Application got submitted for checking---------------")
 			self.i_students += 1
 			self.i_students = self.skip_to_next_valid()
@@ -190,23 +190,23 @@ class SubmitDataspider(scrapy.Spider):
 			failure -- previous scrapy network failure.
 		"""
 		# log all failures
-		self.logger.error(repr(failure))
+		logger.error(repr(failure))
 		errorstr = repr(failure)
 		if failure.check(HttpError):
 			# these exceptions come from HttpError spider middleware
 			response = failure.value.response
-			self.logger.error('HttpError on %s', response.url)
+			logger.error('HttpError on %s', response.url)
 			errorstr = 'HttpError on ' + response.url
 
 		elif failure.check(DNSLookupError):
 			# this is the original request
 			request = failure.request
-			self.logger.error('DNSLookupError on %s', request.url)
+			logger.error('DNSLookupError on %s', request.url)
 			errorstr = 'DNSLookupError on ' + request.url
 
 		elif failure.check(TimeoutError, TCPTimedOutError):
 			request = failure.request
-			self.logger.error('TimeoutError on %s', request.url)
+			logger.error('TimeoutError on %s', request.url)
 			errorstr = 'TimeoutError on ' + request.url
 
 		# Close spider if we encounter above errors.
@@ -265,7 +265,7 @@ class SubmitDataspider(scrapy.Spider):
 					self.cd.set_form_set(FormSets.four)
 				if student.get(FormKeys.old_reg_no(), '') != '':
 					self.is_renewal = True
-					self.logger.info('Application is renewal')
+					logger.info('Application is renewal')
 					if utl.get_std_category(student[FormKeys.std()]) == StdCategory.pre:
 						self.cd.set_form_set(FormSets.four)
 				else:
@@ -326,7 +326,7 @@ class SubmitDataspider(scrapy.Spider):
 			# Check if we have reached max retries and then move to other students, if available
 			if self.tried >= self.cd.max_tries:
 				student[FormKeys.status()] = errorstr
-				self.logger.info(errorstr)
+				logger.info(errorstr)
 				self.students[self.i_students] = student
 				self.err_students.append(student)
 				self.i_students += 1
