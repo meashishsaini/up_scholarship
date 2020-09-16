@@ -215,12 +215,13 @@ class FillDataSpider(scrapy.Spider):
 			std_c = utl.get_std_category(student.get(FormKeys.std(), ''))
 			pre = std_c == StdCategory.pre
 			form_data = {
-				FormKeys.event_target()							: FormKeys.branch_name(form=True, pre=pre),
-				FormKeys.bank_name(form=True)					: self.bank.get_code(
-					student.get(FormKeys.bank_name(), '')),
+				FormKeys.event_target()					: FormKeys.branch_name(form=True),
+				FormKeys.bank_name(form=True)			: self.bank.get_code(
+																student.get(FormKeys.bank_name(), '')),
 				FormKeys.branch_dist_name(form=True)	: self.district.get_code("rampur"),
-				FormKeys.branch_name(form=True, pre=pre)		: self.branch.get_code(
-					student.get(FormKeys.bank_name(), ''), student.get(FormKeys.branch_name(), ''))
+				FormKeys.branch_name(form=True)			: self.branch.get_code(
+																student.get(FormKeys.bank_name(), ''),
+																student.get(FormKeys.branch_name(), ''))
 			}
 			request = scrapy.FormRequest.from_response(
 				response,
@@ -249,6 +250,7 @@ class FillDataSpider(scrapy.Spider):
 			# Get old response after getting captcha
 			response = response.meta['old_response']
 			form_data = self.get_fill_form_data(student, captcha_value)
+			logger.info(form_data)
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata=form_data,
@@ -481,12 +483,13 @@ class FillDataSpider(scrapy.Spider):
 			FormKeys.income_cert_no(form=True)						: student.get(FormKeys.income_cert_no(), ''),
 			FormKeys.income_cert_issue_date(form=True)				: student.get(FormKeys.income_cert_issue_date(), ''),
 			FormKeys.bank_account_no(form=True)						: student.get(FormKeys.bank_account_no(), ''),
+			FormKeys.bank_account_no_re(form=True)					: student.get(FormKeys.bank_account_no_re(), ''),
 			FormKeys.branch_dist_name(form=True)					: self.district.get_code("rampur"),
 			FormKeys.bank_name(form=True)							: self.bank.get_code(
 				student.get(FormKeys.bank_name(), '')),
-			FormKeys.branch_name(form=True, pre=pre)				: self.branch.get_code(
+			FormKeys.branch_name(form=True)				: self.branch.get_code(
 				student.get(FormKeys.bank_name(), ''), student.get(FormKeys.branch_name(), '')),
-			FormKeys.bank_account_holder_name(form=True, pre=pre)	: student.get(FormKeys.bank_account_holder_name(), ''),
+			FormKeys.bank_account_holder_name(form=True)	: student.get(FormKeys.bank_account_holder_name(), ''),
 			# FormKeys.aadhaar_no(form = True, pre = pre):				student.get(FormKeys.aadhaar_no(),''),
 			FormKeys.std(form=True)									: self.course.get_code(
 				student.get(FormKeys.std(), '')),

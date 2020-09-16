@@ -389,6 +389,12 @@ class FormKeys:
 			return cls.prefix + 'txt_std_accno'
 		else:
 			return 'bank_account_no'
+	@classmethod
+	def bank_account_no_re(cls, form=False):
+		if form:
+			return cls.prefix + 'txt_std_accno_Re'
+		else:
+			return 'bank_account_no'
 
 	@classmethod
 	def bank_name(cls, form=False):
@@ -398,9 +404,9 @@ class FormKeys:
 			return 'bank_name'
 
 	@classmethod
-	def branch_name(cls, form=False, pre=True):
+	def branch_name(cls, form=False):
 		if form:
-			return cls.prefix + ('ddl_Branchname' if pre else 'bankBranch')
+			return cls.prefix + 'ddl_Branchname'
 		else:
 			return 'branch_name'
 
@@ -412,9 +418,9 @@ class FormKeys:
 			return 'branch_dist_name'
 
 	@classmethod
-	def bank_account_holder_name(cls, form=False, pre=True):
+	def bank_account_holder_name(cls, form=False):
 		if form:
-			return cls.prefix + ('txt_std_actnm' if pre else 'txt_nameonpassbook')
+			return cls.prefix + 'txt_std_actnm'
 		else:
 			return 'bank_account_holder_name'
 
