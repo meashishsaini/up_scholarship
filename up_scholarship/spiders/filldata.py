@@ -14,6 +14,7 @@ from twisted.internet.error import TimeoutError, TCPTimedOutError
 from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
 import logging
 
+logger = logging.getLogger(__name__)
 
 class FillDataSpider(scrapy.Spider):
 	"""	UP scholarship form fill spider.
@@ -45,8 +46,6 @@ class FillDataSpider(scrapy.Spider):
 	def __init__(self, *args, **kwargs):
 		""" Load student's file and init variables"""
 		super(FillDataSpider, self).__init__(*args, **kwargs)
-		requests_logger = logging.getLogger('scrapy')
-		requests_logger.setLevel(logging.ERROR)
 		self.cd = CommonData()
 		self.students = StudentFile().read_file(self.cd.students_in_file, self.cd.file_in_type)
 		self.no_students = len(self.students)
@@ -60,6 +59,7 @@ class FillDataSpider(scrapy.Spider):
 		self.branch = CodeFileReader(self.cd.branch_file)
 		self.course = CodeFileReader(self.cd.course_file)
 		self.sub_caste = CodeFileReader(self.cd.sub_caste_file)
+		logging.getLogger('scrapy').setLevel(logging.ERROR)
 
 	def start_requests(self):
 		""" Load student's file and get login page if we have some students"""
@@ -75,7 +75,7 @@ class FillDataSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In login form. Last URL: %s', response.url)
+		logger.info('In login form. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, html=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -113,24 +113,25 @@ class FillDataSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In accept popup. Last URL: %s', response.url)
+		logger.info('In accept popup. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error) or self.process_errors(response, TestStrings.login):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 		# Got default response, means popup has been accepted.
 		elif response.url.lower().find(TestStrings.app_default) != -1:
-			self.logger.info('Got default response url %s', response.url)
+			logger.info('Got default response url %s', response.url)
 			# Extract appid for url
 			parsed = urlparse.urlparse(response.url)
 			app_id = urlparse.parse_qs(parsed.query)['Appid'][0]
 
 			student = self.students[self.i_students]
 			url = self.url_provider.get_fill_reg_url(student.get(FormKeys.std(), ''), app_id, self.is_renewal)
+			logger.info("URL: %s", url)
 			yield scrapy.Request(url=url, callback=self.get_bankname, dont_filter=True, errback=self.errback_next)
 		# Popup might not have been accepted, accept it
 		else:
-			self.logger.info('Accepting popup. Last URL: %s', response.url)
+			logger.info('Accepting popup. Last URL: %s', response.url)
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata={
@@ -148,7 +149,7 @@ class FillDataSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In get bankname. Last URL: %s', response.url)
+		logger.info('In get bankname. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, captcha_check=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -174,7 +175,7 @@ class FillDataSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In get bankdist. Last URL: %s', response.url)
+		logger.info('In get bankdist. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, captcha_check=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -204,7 +205,7 @@ class FillDataSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In get branchname. Last URL: %s', response.url)
+		logger.info('In get branchname. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, captcha_check=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -236,7 +237,7 @@ class FillDataSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In fill data. Last URL: %s', response.url)
+		logger.info('In fill data. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, html=False, captcha_check=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -263,14 +264,14 @@ class FillDataSpider(scrapy.Spider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		self.logger.info('In Parse. Last URL: %s', response.url)
+		logger.info('In Parse. Last URL: %s', response.url)
 		student = self.students[self.i_students]
 		if response.url.lower().find(TestStrings.app_new_filled.lower()) != -1 or response.url.lower().find(
 				TestStrings.app_renew_filled.lower()) != -1:
 			student[FormKeys.app_filled()] = 'Y'
 			student[FormKeys.status()] = 'Success'
 			self.students[self.i_students] = student
-			self.logger.info("----------------Application got filled---------------")
+			logger.info("----------------Application got filled---------------")
 			self.i_students += 1
 			self.i_students = self.skip_to_next_valid()
 			self.tried = 0
@@ -288,23 +289,23 @@ class FillDataSpider(scrapy.Spider):
 			failure -- previous scrapy network failure.
 		"""
 		# log all failures
-		self.logger.error(repr(failure))
+		logger.error(repr(failure))
 		error_str = repr(failure)
 		if failure.check(HttpError):
 			# these exceptions come from HttpError spider middleware
 			response = failure.value.response
-			self.logger.error('HttpError on %s', response.url)
+			logger.error('HttpError on %s', response.url)
 			error_str = 'HttpError on ' + response.url
 
 		elif failure.check(DNSLookupError):
 			# this is the original request
 			request = failure.request
-			self.logger.error('DNSLookupError on %s', request.url)
+			logger.error('DNSLookupError on %s', request.url)
 			error_str = 'DNSLookupError on ' + request.url
 
 		elif failure.check(TimeoutError, TCPTimedOutError):
 			request = failure.request
-			self.logger.error('TimeoutError on %s', request.url)
+			logger.error('TimeoutError on %s', request.url)
 			error_str = 'TimeoutError on ' + request.url
 
 		# Close spider if we encounter above errors.
@@ -316,7 +317,7 @@ class FillDataSpider(scrapy.Spider):
 		self.save_if_done()
 
 	def get_captcha(self, response):
-		self.logger.info("In Captcha. Last URL " + response.url)
+		logger.info("In Captcha. Last URL " + response.url)
 		if self.process_errors(response, TestStrings.error, html=True, captcha_check=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -384,7 +385,7 @@ class FillDataSpider(scrapy.Spider):
 				# If we have old registration no. in student's list set it to renewal.
 				if student.get(FormKeys.old_reg_no(), '') != '':
 					self.is_renewal = True
-					self.logger.info('Application is renewal')
+					logger.info('Application is renewal')
 					if utl.get_std_category(student[FormKeys.std()]) == StdCategory.pre:
 						self.cd.set_form_set(FormSets.four)
 				else:
@@ -393,7 +394,7 @@ class FillDataSpider(scrapy.Spider):
 		# If return index is not -1 return it or else return total no. of students.
 		if return_index != -1:
 			student = self.students[return_index]
-			self.logger.info('Filling application of: ' + student.get(FormKeys.name(), '') + ' of std: ' + student.get(
+			logger.info('Filling application of: ' + student.get(FormKeys.name(), '') + ' of std: ' + student.get(
 				FormKeys.std(), ''))
 			return return_index
 		else:
@@ -451,7 +452,7 @@ class FillDataSpider(scrapy.Spider):
 			# Check if we have reached max retries and then move to other students, if available
 			if self.tried >= self.cd.max_tries:
 				student[FormKeys.status()] = error_str
-				self.logger.info(error_str)
+				logger.info(error_str)
 				self.students[self.i_students] = student
 				self.err_students.append(student)
 				self.i_students += 1
