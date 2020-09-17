@@ -35,6 +35,8 @@ def is_student_done(filepath: str):
 					grid.add_row("Registered:", status_str(st, FormKeys.reg_no()))
 					grid.add_row("Application Filled:", status_str(st, FormKeys.app_filled()))
 					grid.add_row("Photo Uploaded:", status_str(st, FormKeys.photo_uploaded()))
+					grid.add_row("Aadhaar authenticated:", status_str(st, FormKeys.aadhaar_authenticated()))
+					grid.add_row("Aadhaar OTP authenticated:", status_str(st, FormKeys.aadhaar_otp_authenticated()))
 					grid.add_row("Submitted for check:", status_str(st, FormKeys.submitted_for_check()))
 					grid.add_row("Final Submitted:", status_str(st, FormKeys.final_submitted()))
 					grid.add_row("Final Printed:", status_str(st, FormKeys.final_printed()))
