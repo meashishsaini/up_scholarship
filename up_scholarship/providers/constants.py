@@ -8,18 +8,6 @@ class StdCategory(Enum):
 	post = auto()
 
 
-class WorkType(Enum):
-	register = auto()
-	fill_data = auto()
-	photo = auto()
-	submit_check = auto()
-	final_submit = auto()
-	renew = auto()
-	receive = auto()
-	verify = auto()
-	forward = auto()
-	aadhaar_auth = auto()
-
 @dataclass
 class TestStrings:
 	error = 'error'

@@ -1,6 +1,6 @@
 import pdfkit
 from up_scholarship.providers.student_file import StudentFile
-from up_scholarship.providers.constants import CommonData, FormKeys, WorkType
+from up_scholarship.providers.constants import CommonData, FormKeys
 from up_scholarship.providers import utilities as utl
 from up_scholarship.providers.file_name import FileName
 import os
@@ -32,7 +32,7 @@ options_12 = {
 def convert2pdf():
 	cd = CommonData()
 	students = StudentFile().read_file(cd.students_in_file, cd.file_in_type)
-	filename = FileName(WorkType.final_submit)
+	filename = FileName("final_submit")
 	for student in students:
 		if student[FormKeys.skip()] == 'Y' or student[FormKeys.final_submitted()] == 'N':
 			continue

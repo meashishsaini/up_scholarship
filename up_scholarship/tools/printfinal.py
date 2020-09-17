@@ -1,5 +1,5 @@
 from up_scholarship.providers.student_file import StudentFile
-from up_scholarship.providers.constants import CommonData, WorkType, FormKeys, StdCategory
+from up_scholarship.providers.constants import CommonData, FormKeys, StdCategory
 from up_scholarship.providers import utilities as utl
 import os
 import logging
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def print_final():
 	cd = CommonData()
 	students = StudentFile().read_file(cd.students_in_file, cd.file_in_type)
-	filename = FileName(WorkType.final_submit)
+	filename = FileName("final_submit")
 
 	no_of_students = len(students)
 	x = 0

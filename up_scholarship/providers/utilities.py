@@ -6,7 +6,7 @@ import mimetypes
 import sys
 import uuid
 import shutil
-from up_scholarship.providers.constants import WorkType, StdCategory
+from up_scholarship.providers.constants import StdCategory
 from up_scholarship.providers.file_name import FileName
 from up_scholarship.providers.constants import FormKeys
 from pathlib import Path
@@ -50,12 +50,13 @@ class PKCS7Encoder(object):
 def save_file_with_name(
 		student,
 		response,
-		work_type: WorkType,
+		work_name: str,
 		year: str,
+		tried=0,
 		extension="html",
 		extra=None,
 		is_debug=False):
-	filename = FileName(work_type).get(student, extension, year, extra=extra, is_debug=is_debug)
+	filename = FileName(work_name).get(student, extension, year, tried=tried, extra=extra, is_debug=is_debug)
 	os.makedirs(os.path.dirname(filename), exist_ok=True)
 	with open(filename, 'wb') as f:
 		f.write(response.body)
@@ -227,12 +228,10 @@ def copy_file(source: str, destination: str) -> bool:
 		print('file copy error: ' + str(why))
 
 
-def get_save_file(student: dict, tried=-1) -> str:
-	if tried == -1:
-		name = student['std'] + '/' + student['name'] + '.' + student['father_name'] + '.' + student['mother_name']
-	else:
-		name = student['std'] + '/' + student['name'] + '.' + student['father_name'] + '.' + student[
-			'mother_name'] + str(tried)
+def get_save_file(student: dict, tried=0) -> str:
+	name = f"{student['std']}/{student['name']}.{student['father_name']}.{student['mother_name']}"
+	if tried > 0:
+		name = name + f".{str(tried)}"
 	return name
 
 
