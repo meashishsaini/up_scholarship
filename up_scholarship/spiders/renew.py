@@ -14,6 +14,7 @@ from scrapy.exceptions import CloseSpider
 from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
 import logging
 
+logger = logging.getLogger(__name__)
 
 class RenewSpider(scrapy.Spider):
 	name = 'renew'
@@ -27,8 +28,7 @@ class RenewSpider(scrapy.Spider):
 	def __init__(self, *args, **kwargs):
 		""" Load student's file and init variables"""
 		super(RenewSpider, self).__init__(*args, **kwargs)
-		requests_logger = logging.getLogger('scrapy')
-		requests_logger.setLevel(logging.ERROR)
+		logging.getLogger('scrapy').setLevel(logging.ERROR)
 		self.cd = CommonData()
 		self.students = StudentFile().read_file(self.cd.students_in_file, self.cd.file_in_type)
 		self.no_students = len(self.students)
@@ -44,7 +44,7 @@ class RenewSpider(scrapy.Spider):
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 
 	def fill_form(self, response):
-		self.logger.info('In fill form. Last URL: %s', response.url)
+		logger.info('In fill form. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, html=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_renew_url(student[FormKeys.caste()], student[FormKeys.std()], student[FormKeys.is_minority()] == 'Y')
@@ -73,15 +73,15 @@ class RenewSpider(scrapy.Spider):
 			yield request
 
 	def parse(self, response):
-		self.logger.info('In parse. Previous URL: %s', response.url)
+		logger.info('In parse. Previous URL: %s', response.url)
 		student = self.students[self.i_students]
 
 		if response.url.find(TestStrings.renew_success) != -1:
 			new_reg_no = response.xpath(
 				'//*[@id="' + FormKeys.reg_no(form=True, reg=True) + '"]/text()').extract_first()
 			vf_code = response.xpath('//*[@id="' + FormKeys.password(form=True, reg=True) + '"]/text()').extract_first()
-			self.logger.info("----------------Application got renewed---------------")
-			self.logger.info("New reg no.: %s vf_code: %s", new_reg_no, vf_code)
+			logger.info("----------------Application got renewed---------------")
+			logger.info("New reg no.: %s vf_code: %s", new_reg_no, vf_code)
 			print("----------------Application got renewed---------------")
 			print("New reg no.:" + new_reg_no)
 			src = utl.get_photo_by_uid_name(self.cd.data_dir, student, 'jpg ', student[FormKeys.reg_year()], FormKeys())
@@ -119,23 +119,23 @@ class RenewSpider(scrapy.Spider):
 			failure -- previous scrapy network failure.
 		"""
 		# log all failures
-		self.logger.error(repr(failure))
+		logger.error(repr(failure))
 		errorstr = repr(failure)
 		if failure.check(HttpError):
 			# these exceptions come from HttpError spider middleware
 			response = failure.value.response
-			self.logger.error('HttpError on %s', response.url)
+			logger.error('HttpError on %s', response.url)
 			errorstr = 'HttpError on ' + response.url
 
 		elif failure.check(DNSLookupError):
 			# this is the original request
 			request = failure.request
-			self.logger.error('DNSLookupError on %s', request.url)
+			logger.error('DNSLookupError on %s', request.url)
 			errorstr = 'DNSLookupError on ' + request.url
 
 		elif failure.check(TimeoutError, TCPTimedOutError):
 			request = failure.request
-			self.logger.error('TimeoutError on %s', request.url)
+			logger.error('TimeoutError on %s', request.url)
 			errorstr = 'TimeoutError on ' + request.url
 
 		# Close spider if we encounter above errors.
@@ -147,7 +147,7 @@ class RenewSpider(scrapy.Spider):
 		self.save_if_done()
 
 	def get_captcha(self, response):
-		self.logger.info("In Captcha. Last URL %s", response.url)
+		logger.info("In Captcha. Last URL %s", response.url)
 		if self.process_errors(response, TestStrings.error):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_renew_url(student[FormKeys.caste()], student[FormKeys.std()], student[FormKeys.is_minority()] == 'Y')
@@ -165,7 +165,7 @@ class RenewSpider(scrapy.Spider):
 			student = self.students[x]
 			# If these required keys are not available continue
 			if not utl.check_if_keys_exist(student, self.required_keys):
-				self.logger.info('skipping ' + student[FormKeys.name()])
+				logger.info('skipping ' + student[FormKeys.name()])
 				continue
 			reg_year = int(student.get(FormKeys.reg_year(), '0')) if len(student.get(FormKeys.reg_year(), '')) > 0 else 0
 			if reg_year != 0 and reg_year < datetime.today().year and student[FormKeys.skip()] == 'N':

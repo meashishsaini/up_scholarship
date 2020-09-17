@@ -14,6 +14,7 @@ from up_scholarship.providers.codes import CodeFileReader
 from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
 import logging
 
+logger = logging.getLogger(__name__)
 
 class RegisterSpider(scrapy.Spider):
 	name = 'register'
@@ -30,8 +31,7 @@ class RegisterSpider(scrapy.Spider):
 	def __init__(self, *args, **kwargs):
 		''' Load student's file and init variables'''
 		super(RegisterSpider, self).__init__(*args, **kwargs)
-		requests_logger = logging.getLogger('scrapy')
-		requests_logger.setLevel(logging.ERROR)
+		logging.getLogger('scrapy').setLevel(logging.ERROR)
 		self.cd = CommonData()
 		self.students = StudentFile().read_file(self.cd.students_in_file, self.cd.file_in_type)
 		self.no_students = len(self.students)
@@ -52,7 +52,7 @@ class RegisterSpider(scrapy.Spider):
 			yield scrapy.Request(url=url, callback=self.get_district, dont_filter=True, errback=self.errback_next)
 
 	def get_district(self, response):
-		self.logger.info('In getting district. Last Url: %s', response.url)
+		logger.info('In getting district. Last Url: %s', response.url)
 		if self.process_errors(response, TestStrings.error):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_reg_url(student[FormKeys.caste()], student[FormKeys.std()], student[FormKeys.is_minority()] == 'Y')
@@ -74,7 +74,7 @@ class RegisterSpider(scrapy.Spider):
 			yield request
 
 	def get_institute(self, response):
-		self.logger.info('In getting institute. Last Url: %s', response.url)
+		logger.info('In getting institute. Last Url: %s', response.url)
 		if self.process_errors(response, TestStrings.error):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_reg_url(student[FormKeys.caste()], student[FormKeys.std()], student[FormKeys.is_minority()] == 'Y')
@@ -97,7 +97,7 @@ class RegisterSpider(scrapy.Spider):
 			yield request
 
 	def get_caste(self, response):
-		self.logger.info('In get caste. Last Url: %s', response.url)
+		logger.info('In get caste. Last Url: %s', response.url)
 		if self.process_errors(response, TestStrings.error):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_reg_url(student[FormKeys.caste()], student[FormKeys.std()], student[FormKeys.is_minority()] == 'Y')
@@ -124,7 +124,7 @@ class RegisterSpider(scrapy.Spider):
 			yield request
 
 	def fill_reg(self, response):
-		self.logger.info('In reg form. Last Url: %s', response.url)
+		logger.info('In reg form. Last Url: %s', response.url)
 		if self.process_errors(response, TestStrings.error, html=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_reg_url(student[FormKeys.caste()], student[FormKeys.std()], student[FormKeys.is_minority()] == 'Y')
@@ -148,7 +148,7 @@ class RegisterSpider(scrapy.Spider):
 			yield request
 
 	def parse(self, response):
-		self.logger.info('In parse. Last URL: %s ', response.url)
+		logger.info('In parse. Last URL: %s ', response.url)
 		student = self.students[self.i_students]
 
 		if response.url.find(TestStrings.registration_success) != -1:
@@ -158,8 +158,8 @@ class RegisterSpider(scrapy.Spider):
 			student[FormKeys.status()] = "Success"
 			student[FormKeys.reg_year()] = str(datetime.today().year)
 			self.students[self.i_students] = student
-			self.logger.info("----------------Application got registered---------------")
-			self.logger.info("Reg no.: %s password: %s", reg_no, response.meta['password'])
+			logger.info("----------------Application got registered---------------")
+			logger.info("Reg no.: %s password: %s", reg_no, response.meta['password'])
 			utl.save_file_with_name(student, response, WorkType.register, str(datetime.today().year))
 			self.i_students += 1
 			self.i_students = self.skip_to_next_valid()
@@ -174,24 +174,24 @@ class RegisterSpider(scrapy.Spider):
 
 	def errback_next(self, failure):
 		# log all failures
-		self.logger.error(repr(failure))
+		logger.error(repr(failure))
 		error_str = repr(failure)
 
 		if failure.check(HttpError):
 			# these exceptions come from HttpError spider middleware
 			response = failure.value.response
-			self.logger.error('HttpError on %s', response.url)
+			logger.error('HttpError on %s', response.url)
 			error_str = 'HttpError on ' + response.url
 
 		elif failure.check(DNSLookupError):
 			# this is the original request
 			request = failure.request
-			self.logger.error('DNSLookupError on %s', request.url)
+			logger.error('DNSLookupError on %s', request.url)
 			error_str = 'DNSLookupError on ' + request.url
 
 		elif failure.check(TimeoutError, TCPTimedOutError):
 			request = failure.request
-			self.logger.error('TimeoutError on %s', request.url)
+			logger.error('TimeoutError on %s', request.url)
 			error_str = 'TimeoutError on ' + request.url
 
 		student = self.students[self.i_students]

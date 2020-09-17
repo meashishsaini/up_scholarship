@@ -17,6 +17,7 @@ from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
 import logging
 from up_scholarship.providers.codes import CodeFileReader
 
+logger = logging.getLogger(__name__)
 
 class FinalSubmitDataSpider(scrapy.Spider):
 	name = 'finalsubmit'
@@ -33,8 +34,7 @@ class FinalSubmitDataSpider(scrapy.Spider):
 	def __init__(self, *args, **kwargs):
 		''' Load student's file and init variables'''
 		super(FinalSubmitDataSpider, self).__init__(*args, **kwargs)
-		requests_logger = logging.getLogger('scrapy')
-		requests_logger.setLevel(logging.ERROR)
+		logging.getLogger('scrapy').setLevel(logging.ERROR)
 		self.cd = CommonData()
 		self.students = StudentFile().read_file(self.cd.students_in_file, self.cd.file_in_type)
 		self.no_students = len(self.students)
@@ -50,7 +50,7 @@ class FinalSubmitDataSpider(scrapy.Spider):
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 
 	def login_form(self, response):
-		self.logger.info('In login form. Last URL: %s', response.url)
+		logger.info('In login form. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error, html=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -77,14 +77,14 @@ class FinalSubmitDataSpider(scrapy.Spider):
 			yield request
 
 	def accept_popup(self, response):
-		self.logger.info('In accept popup. Last URL: %s', response.url)
+		logger.info('In accept popup. Last URL: %s', response.url)
 		if self.process_errors(response, TestStrings.error) or self.process_errors(response, TestStrings.login):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 		elif response.url.lower().find(TestStrings.app_default) != -1:
 			# Extract appid for url
-			self.logger.info('Got default response url %s', response.url)
+			logger.info('Got default response url %s', response.url)
 			student = self.students[self.i_students]
 			everything_fine, status = self.check_if_matched(response,
 															self.religion.get_code(student[FormKeys.religion()]),
@@ -119,7 +119,7 @@ class FinalSubmitDataSpider(scrapy.Spider):
 										 errback=self.errback_next)
 			yield request
 		else:
-			self.logger.info('Accepting popup. Last URL: %s', response.url)
+			logger.info('Accepting popup. Last URL: %s', response.url)
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata={
@@ -133,7 +133,7 @@ class FinalSubmitDataSpider(scrapy.Spider):
 			yield request
 
 	def final_disclaimer(self, response):
-		self.logger.info('In Final disclaimer. Last URL: %s', response.url)
+		logger.info('In Final disclaimer. Last URL: %s', response.url)
 		student = self.students[self.i_students]
 		if response.url.lower().find(TestStrings.final_disclaimer.lower()) != -1:
 			parsed = urlparse.urlparse(response.url)
@@ -143,7 +143,7 @@ class FinalSubmitDataSpider(scrapy.Spider):
 			request = scrapy.Request(url=url, callback=self.save_print, dont_filter=True, errback=self.errback_next)
 
 		elif response.url.lower().find(TestStrings.final_print) != -1:
-			self.logger.info('Saving student\'s final page')
+			logger.info('Saving student\'s final page')
 			utl.save_file_with_name(student, response, WorkType.final_submit, str(datetime.today().year),
 									extra="/finalprint")
 
@@ -163,11 +163,11 @@ class FinalSubmitDataSpider(scrapy.Spider):
 		yield request
 
 	def save_print(self, response):
-		self.logger.info('In save print. Last URL: %s', response.url)
+		logger.info('In save print. Last URL: %s', response.url)
 		if response.url.lower().find(TestStrings.final_print) != -1:
 			student = self.students[self.i_students]
 
-			self.logger.info('Saving student\'s final page')
+			logger.info('Saving student\'s final page')
 			utl.save_file_with_name(student, response, WorkType.final_submit, str(datetime.today().year),
 									extra="/finalprint")
 
@@ -188,21 +188,21 @@ class FinalSubmitDataSpider(scrapy.Spider):
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 
 	def save_img(self, response):
-		self.logger.info('In save img. Last URL: %s', response.url)
+		logger.info('In save img. Last URL: %s', response.url)
 		if response.url.lower().find(TestStrings.show_image) != -1:
 			student = self.students[self.i_students]
 			parsed = urlparse.urlparse(response.url)
 			f = parsed.path.split('/')
 			f = f[len(f) - 1]
 
-			self.logger.info('Saving student\'s image')
+			logger.info('Saving student\'s image')
 			utl.save_file_with_name(student, response, WorkType.final_submit, str(datetime.today().year), extension="",
 									extra='/' + f)
 
 			student[FormKeys.final_submitted()] = 'Y'
 			student[FormKeys.status()] = 'Success'
 			self.students[self.i_students] = student
-			self.logger.info("----------------Application got saved for instituion---------------")
+			logger.info("----------------Application got saved for instituion---------------")
 			print("----------------Application got saved for instituion---------------")
 			self.i_students += 1
 			self.i_students = self.skip_to_next_valid()
@@ -221,23 +221,23 @@ class FinalSubmitDataSpider(scrapy.Spider):
 			failure -- previous scrapy network failure.
 		'''
 		# log all failures
-		self.logger.error(repr(failure))
+		logger.error(repr(failure))
 		errorstr = repr(failure)
 		if failure.check(HttpError):
 			# these exceptions come from HttpError spider middleware
 			response = failure.value.response
-			self.logger.error('HttpError on %s', response.url)
+			logger.error('HttpError on %s', response.url)
 			errorstr = 'HttpError on ' + response.url
 
 		elif failure.check(DNSLookupError):
 			# this is the original request
 			request = failure.request
-			self.logger.error('DNSLookupError on %s', request.url)
+			logger.error('DNSLookupError on %s', request.url)
 			errorstr = 'DNSLookupError on ' + request.url
 
 		elif failure.check(TimeoutError, TCPTimedOutError):
 			request = failure.request
-			self.logger.error('TimeoutError on %s', request.url)
+			logger.error('TimeoutError on %s', request.url)
 			errorstr = 'TimeoutError on ' + request.url
 
 		# Close spider if we encounter above errors.
@@ -390,7 +390,7 @@ class FinalSubmitDataSpider(scrapy.Spider):
 			high_school_status = self.get_status(response, FormKeys.high_school_status(self.cd.current_form_set))
 
 		self.cd.set_form_set(old)
-		self.logger.info(
+		logger.info(
 			str(final_form_status) + ' ' + str(income_cert_no_status) + ' ' + str(caste_cert_no_status) + ' ' + str(
 				annual_income_status))
 		ok = True
