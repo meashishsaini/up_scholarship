@@ -17,6 +17,7 @@ install_requires = [
 	"dlib",
 	"pyinsane2",
 	"rich",
+	"pycryptodome",
 	"D:\Data\Projects\python\scan_helper"
 ]
 

@@ -224,7 +224,7 @@ class RenewSpider(scrapy.Spider):
 		# If the response is html, check for extra errors in the html page
 		if html:
 			error_in = response.xpath(
-				'//*[@id="' + FormKeys.error_lbl(self.cd.current_form_set) + '"]/text()').extract_first()
+				'//*[@id="' + FormKeys.error_lbl() + '"]/text()').extract_first()
 			if error_in == TestStrings.invalid_captcha and captcha_check:
 				error = True
 				errorstr = 'captcha wrong'

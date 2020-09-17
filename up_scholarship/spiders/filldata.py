@@ -431,7 +431,7 @@ class FillDataSpider(scrapy.Spider):
 		# If the response is html, check for extra errors in the html page
 		if html:
 			error_in = response.xpath(
-				'//*[@id="' + FormKeys.error_lbl(self.cd.current_form_set) + '"]/text()').extract_first()
+				'//*[@id="' + FormKeys.error_lbl() + '"]/text()').extract_first()
 			if error_in == TestStrings.invalid_captcha and captcha_check:
 				error = True
 				error_str = 'captcha wrong'
@@ -443,8 +443,6 @@ class FillDataSpider(scrapy.Spider):
 						error_str = script[7:-1]
 						self.tried = self.cd.max_tries
 						error = True
-			error_in = response.xpath(
-				'//*[@id="' + FormKeys.error_lbl(FormSets.unknown) + '"]/text()').extract_first()
 			if error_in:
 				error_str = error_in
 				error = True

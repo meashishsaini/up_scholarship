@@ -18,6 +18,7 @@ class WorkType(Enum):
 	receive = auto()
 	verify = auto()
 	forward = auto()
+	aadhaar_auth = auto()
 
 @dataclass
 class TestStrings:
@@ -36,6 +37,7 @@ class TestStrings:
 	renew_form = 'Renew'
 	alert = 'alert'
 	invalid_captcha = 'Invalid Captcha.!!'
+	invalid_captcha_2 = "Invalid Captcha...! Try Again."
 	matched = 'yes'
 	final_print = 'finalprint'
 	show_image = 'showimage'
@@ -44,6 +46,9 @@ class TestStrings:
 	application_received = 'Application Recieved Successfully !'
 	application_verified = 'Application Verified Successfully !'
 	application_forwarded = '1  Records Forwarded Successfully !'
+	aadhaar_authenticated = "प्रमाणीकरण सफल"
+	aadhaar_auth_failed = "छात्र/छात्रा का नाम या जन्मतिथि आधार कार्ड में अंकित विवरण से मिलान नहीं हो पा रहा है"
+	aadhaar_auth = "aadhar"
 
 
 class StudentFileTypes(Enum):
@@ -425,9 +430,15 @@ class FormKeys:
 			return 'bank_account_holder_name'
 
 	@classmethod
-	def aadhaar_no(cls, form=False, pre=True):
+	def aadhaar_no(cls, form=False):
 		if form:
-			return cls.prefix + ('adharno' if pre else 'txt_Uid')
+			return cls.prefix + 'txtadharno'
+		else:
+			return 'aadhaar_no'
+	@classmethod
+	def aadhaar_no_re(cls, form=False):
+		if form:
+			return cls.prefix + 'txtadharno_Re'
 		else:
 			return 'aadhaar_no'
 
@@ -713,13 +724,8 @@ class FormKeys:
 		return 'old_regno'
 
 	@classmethod
-	def error_lbl(cls, current_form_set):
-		r = 'ContentPlaceHolder1_ErrorLbl'
-		if current_form_set == FormSets.one:
-			r = 'ctl00_' + r
-		elif current_form_set == FormSets.four:
-			r = 'ErrorLbl'
-		return r
+	def error_lbl(cls):
+		return 'ContentPlaceHolder1_ErrorLbl'
 
 	@classmethod
 	def first_app_id(cls):
@@ -774,6 +780,10 @@ class FormKeys:
 	@classmethod
 	def photo_uploaded(cls):
 		return 'photo_uploaded'
+
+	@classmethod
+	def aadhaar_authenticated(cls):
+		return 'aadhaar_authenticated'
 
 	@classmethod
 	def submitted_for_check(cls):
@@ -877,6 +887,9 @@ class FormKeys:
 			elif current_form_set == FormSets.four:
 				r = 'Href_temp_lock'
 			return r
+	@classmethod
+	def correct_lbl(cls):
+		return "ContentPlaceHolder1_CorrectLbl"
 
 	@classmethod
 	def income_cert_no_status(cls, current_form_set):

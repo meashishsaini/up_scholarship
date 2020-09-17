@@ -13,8 +13,40 @@ from pathlib import Path
 import imutils
 import cv2
 import io
+from Crypto.Cipher import AES
+import base64
+import binascii
+try:
+	from StringIO import StringIO
+except ImportError:
+	from io import StringIO
 
+class PKCS7Encoder(object):
+	def __init__(self, k=16):
+		self.k = k
 
+	def decode(self, text):
+		'''
+		Remove the PKCS#7 padding from a text string
+		'''
+		nl = len(text)
+		val = int(binascii.hexlify(text[-1]), 16)
+		if val > self.k:
+			raise ValueError('Input is not padded or padding is corrupt')
+
+		l = nl - val
+		return text[:l]
+
+	def encode(self, text):
+		'''
+		Pad an input string according to PKCS#7
+		'''
+		l = len(text)
+		output = StringIO()
+		val = self.k - (l % self.k)
+		for _ in range(val):
+			output.write('%02x' % val)
+		return text.encode("utf-8") + binascii.unhexlify(output.getvalue())
 def save_file_with_name(
 		student,
 		response,
@@ -55,6 +87,13 @@ def get_random_password(length=8):
 	password += s_character[ord(os.urandom(1)) % len(s_character)]
 	return password
 
+def get_encryped_aadhaar(aadhaar_no: str):
+	encoder = PKCS7Encoder()
+	key = '8080808080808080'.encode("utf-8")
+	cipher = AES.new( key, AES.MODE_CBC, key )
+	pad_text = encoder.encode(aadhaar_no)
+	cipered = cipher.encrypt(pad_text)
+	return (base64.b64encode(cipered)).decode("utf-8")
 
 def get_login_form_password(password: str, hf: str = ''):
 	"""	Password is hashed and concatenated with hashed hf found in page

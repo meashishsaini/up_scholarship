@@ -18,8 +18,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class SubmitDataspider(scrapy.Spider):
-	name = 'submitcheck'
+class AadhaarAuthSpider(scrapy.Spider):
+	name = 'aadhaarauth'
 	tried = 0
 	no_students = 0
 	i_students = 0
@@ -27,12 +27,12 @@ class SubmitDataspider(scrapy.Spider):
 	is_renewal = False
 	common_required_keys = [
 		FormKeys.skip(), FormKeys.std(), FormKeys.reg_no(), FormKeys.dob(), FormKeys.name(), FormKeys.app_filled(),
-		FormKeys.photo_uploaded(), FormKeys.father_name(), FormKeys.submitted_for_check()
+		FormKeys.photo_uploaded(), FormKeys.father_name(), FormKeys.submitted_for_check(), FormKeys.aadhaar_authenticated()
 	]
 
 	def __init__(self, *args, **kwargs):
 		""" Load student's file and init variables"""
-		super(SubmitDataspider, self).__init__(*args, **kwargs)
+		super(AadhaarAuthSpider, self).__init__(*args, **kwargs)
 		logging.getLogger('scrapy').setLevel(logging.ERROR)
 		self.cd = CommonData()
 		self.students = StudentFile().read_file(self.cd.students_in_file, self.cd.file_in_type)
@@ -92,8 +92,9 @@ class SubmitDataspider(scrapy.Spider):
 			app_id = urlparse.parse_qs(parsed.query)['Appid'][0]
 
 			student = self.students[self.i_students]
-			url = self.url_provider.get_temp_print_url(student.get(FormKeys.std(), ''), app_id, self.is_renewal)
-			request = scrapy.Request(url=url, callback=self.save_print, dont_filter=True, errback=self.errback_next)
+			url = self.url_provider.get_aadhaar_auth_url(student.get(FormKeys.std(), ''), app_id, self.is_renewal)
+			logger.info("URL: %s", url)
+			request = scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 			request.meta['old_response'] = response
 			yield request
 		# Popup might not have been accepted, accept it
@@ -102,8 +103,8 @@ class SubmitDataspider(scrapy.Spider):
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata={
-					FormKeys.check_popup_agree(form=True): 'on',
-					FormKeys.popup_button(form=True)     : 'Proceed >>>',
+					FormKeys.check_popup_agree(form=True)	: 'on',
+					FormKeys.popup_button(form=True)		: 'Proceed >>>',
 				},
 				callback=self.accept_popup,
 				errback=self.errback_next,
@@ -111,74 +112,55 @@ class SubmitDataspider(scrapy.Spider):
 			)
 			yield request
 
-	def save_print(self, response):
-		logger.info('In save print. Last URL: %s', response.url)
-		if self.process_errors(response, TestStrings.error, captcha_check=False):
+	def fill_data(self, response):
+		""" Fill the aadhaar number.
+			Keyword arguments:
+			response -- previous scrapy response.
+		"""
+		logger.info('In fill data. Last URL: %s', response.url)
+		if self.process_errors(response, TestStrings.error, html=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 		else:
+			captcha_value = get_captcha_string(response.body)
+
 			student = self.students[self.i_students]
-
-			logger.info('Saving student\'s check page')
-
-			utl.save_file_with_name(student, response, WorkType.submit_check, str(datetime.today().year),
-									extra="/checkprint")
-
-			img_url = response.xpath('//*[@id="PhotoImg"]/@src').extract_first()
-			parsed = urlparse.urlparse(img_url)
-			app_id = urlparse.parse_qs(parsed.query)['App_Id'][0]
-
-			url = self.url_provider.get_img_print_url(student.get(FormKeys.std(), ''), app_id, self.is_renewal)
-			request = scrapy.Request(url=url, callback=self.save_img, dont_filter=True, errback=self.errback_next)
-			request.meta['old_response'] = response.meta['old_response']
-			yield request
-
-	def save_img(self, response):
-		logger.info('In save img. Last URL: %s', response.url)
-		if self.process_errors(response, TestStrings.error, captcha_check=False, html=False):
-			student = self.students[self.i_students]
-			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
-			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
-		else:
-			student = self.students[self.i_students]
-			parsed = urlparse.urlparse(response.url)
-			f = parsed.path.split('/')
-			f = f[len(f) - 1]
-
-			logger.info('Saving student\'s image')
-			utl.save_file_with_name(student, response, WorkType.submit_check, str(datetime.today().year), extension="",
-									extra='/' + f)
-
+			# Get old response after getting captcha
 			response = response.meta['old_response']
+			form_data = self.get_fill_form_data(student, captcha_value)
+			logger.info(form_data)
 			request = scrapy.FormRequest.from_response(
 				response,
-				formdata={
-					FormKeys.event_target(): FormKeys.temp_submit_lock(self.cd.current_form_set, form=True)
-				},
+				formdata=form_data,
 				callback=self.parse,
 				errback=self.errback_next,
 				dont_filter=True,
+				dont_click=True
 			)
 			yield request
 
 	def parse(self, response):
 		logger.info('In parse. Last URL: %s', response.url)
 		student = self.students[self.i_students]
-		locked_request = response.xpath(
-			'//*[@id="' + FormKeys.temp_submit_lock(self.cd.current_form_set) + '"]').extract_first()
-		if response.url.lower().find(TestStrings.app_default) != -1 and locked_request is None:
-			student[FormKeys.submitted_for_check()] = 'Y'
+		utl.save_file_with_name(student, response, WorkType.aadhaar_auth, str(datetime.today().year), extra="parse", is_debug=True)
+		correct_label = response.xpath(
+			'//*[@id="' + FormKeys.correct_lbl() + '"]/text()').extract_first()
+		logger.info("Correct label: %s", correct_label)
+		correct_label = correct_label if correct_label else ""
+		if response.url.lower().find(TestStrings.app_default) == -1 and correct_label == TestStrings.aadhaar_authenticated:
+			student[FormKeys.aadhaar_authenticated()] = 'Y'
 			student[FormKeys.status()] = 'Success'
 			self.students[self.i_students] = student
-			logger.info("----------------Application got submitted for checking---------------")
-			print("----------------Application got submitted for checking---------------")
+			logger.info("----------------Aadhaar got authenticated---------------")
+			print("----------------Aadhaar got authenticated---------------")
 			self.i_students += 1
 			self.i_students = self.skip_to_next_valid()
 			self.tried = 0
 		else:
-			self.process_errors(response, TestStrings.app_default)
-			self.process_errors(response, TestStrings.error)
+			if not self.process_errors(response, TestStrings.app_default):
+				if not self.process_errors(response, TestStrings.aadhaar_auth):
+					self.process_errors(response, TestStrings.error)
 		self.save_if_done()
 		student = self.students[self.i_students]
 		url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -218,15 +200,20 @@ class SubmitDataspider(scrapy.Spider):
 		self.save_if_done()
 
 	def get_captcha(self, response):
-		print("In Captcha. Last URL: " + response.url)
-		if self.process_errors(response, TestStrings.error, html=True, captcha_check=False):
+		logger.info("In Captcha. Last URL: " + response.url)
+		if self.process_errors(response, TestStrings.error):
 			self.save_if_done()
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 		else:
+			# Use different callbacks for login form and fill data form.
 			captcha_url = self.url_provider.get_captcha_url()
-			request = scrapy.Request(url=captcha_url, callback=self.login_form, dont_filter=True,
+			if response.url.lower().find(TestStrings.login) != -1:
+				callback = self.login_form
+			else:
+				callback = self.fill_data
+			request = scrapy.Request(url=captcha_url, callback=callback, dont_filter=True,
 									 errback=self.errback_next)
 			request.meta['old_response'] = response
 			yield request
@@ -255,9 +242,8 @@ class SubmitDataspider(scrapy.Spider):
 				continue
 			reg_year = int(student.get(FormKeys.reg_year(), '')) if len(student.get(FormKeys.reg_year(), '')) > 0 else 0
 			if student.get(FormKeys.skip(), '') == 'N' and reg_year == datetime.today().year and student.get(
-						FormKeys.app_filled(), '') == 'Y' and student.get(FormKeys.photo_uploaded(), '') == 'Y' and student.get(
-						FormKeys.aadhaar_authenticated(), '') == 'Y' and student.get(
-						FormKeys.submitted_for_check(), '') == 'N':
+					FormKeys.app_filled(), '') == 'Y' and student.get(FormKeys.photo_uploaded(), '') == 'Y' and student.get(
+					FormKeys.aadhaar_authenticated(), '') == 'N':
 				return_index = x
 				if utl.get_std_category(student[FormKeys.std()]) == StdCategory.pre:
 					self.cd.set_form_set(FormSets.one)
@@ -273,19 +259,18 @@ class SubmitDataspider(scrapy.Spider):
 				break
 		if (return_index != -1):
 			student = self.students[return_index]
-			print('Confirming application of: ' + student.get(FormKeys.name(), '') + ' of std: ' + student.get(
+			logger.info('Aadhaar authenticating application of: ' + student.get(FormKeys.name(), '') + ' of std: ' + student.get(
 				FormKeys.std(), ''))
 			return return_index
 		else:
 			return self.no_students
 
-	def process_errors(self, response, check_str, html=True, captcha_check=True):
+	def process_errors(self, response, check_str, html=True):
 		''' Process error and skip to next student if max retries
 			Arguments:
 			response -- scrapy response
 			check_str -- string if needed to check against
 			html -- whether the response is html page
-			captcha_check -- whether captcha error needed to be checked 
 			Returns: boolean
 		'''
 		student = self.students[self.i_students]
@@ -296,11 +281,11 @@ class SubmitDataspider(scrapy.Spider):
 		# If we match the check_str set it to generic error.
 		if response.url.lower().find(check_str.lower()) != -1:
 			error = True
-			errorstr = 'Maximum retries reached'
+			errorstr = 'Unknown error occured'
 		# Process code in url argument
 		elif 'a' in parseq:
 			error = True
-			if parseq['a'][0] == 'c' and captcha_check:
+			if parseq['a'][0] == 'c':
 				errorstr = 'captcha wrong'
 			else:
 				errorstr = 'Error code: ' + parseq['a'][0]
@@ -309,9 +294,13 @@ class SubmitDataspider(scrapy.Spider):
 		if html:
 			error_in = response.xpath(
 				'//*[@id="' + FormKeys.error_lbl() + '"]/text()').extract_first()
-			if error_in == TestStrings.invalid_captcha and captcha_check:
+			if error_in:
+				errorstr = error_in
 				error = True
-				errorstr = 'captcha wrong'
+				if error_in != TestStrings.invalid_captcha and error_in != TestStrings.invalid_captcha_2:
+					self.tried = self.cd.max_tries
+				if error_in == TestStrings.aadhaar_auth_failed:
+					student[FormKeys.skip()] = "Y"
 			# Check if error messages are in scripts
 			else:
 				scripts = response.xpath('//script/text()').extract()
@@ -322,11 +311,11 @@ class SubmitDataspider(scrapy.Spider):
 						error = True
 					# If we have error save page as html file.
 		if error:
-			utl.save_file_with_name(student, response, WorkType.submit_check, str(datetime.today().year), is_debug=True)
+			logger.info("Error string: %s", errorstr)
+			utl.save_file_with_name(student, response, WorkType.aadhaar_auth, str(datetime.today().year), is_debug=True)
 			# Check if we have reached max retries and then move to other students, if available
 			if self.tried >= self.cd.max_tries:
 				student[FormKeys.status()] = errorstr
-				logger.info(errorstr)
 				self.students[self.i_students] = student
 				self.err_students.append(student)
 				self.i_students += 1
@@ -336,3 +325,19 @@ class SubmitDataspider(scrapy.Spider):
 			else:
 				self.tried += 1
 		return error
+	def get_fill_form_data(self, student: dict, captcha_value: str) -> dict:
+		""" Create and return the form data
+			Keyword arguments:
+			student -- student whose details needed to be filled.
+			captcha_value -- captcha value to be used in filling form.
+			Returns: dict
+		"""
+		enrypted_aadhaar_no = utl.get_encryped_aadhaar(student.get(FormKeys.aadhaar_no(),''))
+		form_data = {
+			FormKeys.aadhaar_no(form = True)		:	enrypted_aadhaar_no,
+			FormKeys.aadhaar_no_re(form = True)		:	enrypted_aadhaar_no,
+			FormKeys.captcha_value(form=True)		:	captcha_value,
+			FormKeys.check_agree(form=True)			:	'on',
+			FormKeys.submit(form=True)				:	'Verify Aadhar'
+		}
+		return form_data

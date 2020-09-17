@@ -117,7 +117,7 @@ class UrlProviders:
 
 	def get_temp_print_url(self, std: str, app_id: str, is_renewal: bool) -> str:
 		pre_fill_reg_url = self.pre_path + "/TempPrintPrematric.aspx"
-		post_fill_reg_url = self.post_renewal_path + "/TempPrintIntermediate.aspx"
+		post_fill_reg_url = self.post_path + "/TempPrintIntermediate.aspx"
 
 		pre_fill_renewal_reg_url = self.pre_renewal_path + "/renewTempPrintPrematric.aspx"
 		post_fill_renewal_reg_url = self.post_renewal_path + "/renewTempPrint_Inter.aspx"
@@ -130,7 +130,7 @@ class UrlProviders:
 
 	def get_img_print_url(self, std: str, app_id: str, is_renewal: bool) -> str:
 		pre_fill_reg_url = self.pre_path + "/ShowImagePrematric.aspx"
-		post_fill_reg_url = self.post_renewal_path + "/ShowImage_1112.aspx"
+		post_fill_reg_url = self.post_path + "/ShowImage_1112.aspx"
 
 		pre_fill_renewal_reg_url = self.pre_renewal_path + "/ShowImagePrematric_renew.aspx"
 		post_fill_renewal_reg_url = self.post_renewal_path + "/ShowImage_1112.aspx"
@@ -144,7 +144,7 @@ class UrlProviders:
 
 	def get_final_disclaimer_url(self, std: str, app_id: str, is_renewal: bool) -> str:
 		pre_fill_reg_url = self.pre_path + "/FinalDisclaimer.aspx"
-		post_fill_reg_url = self.post_renewal_path + "/FinalDisclaimer.aspx"
+		post_fill_reg_url = self.post_path + "/FinalDisclaimer.aspx"
 
 		pre_fill_renewal_reg_url = self.pre_renewal_path + "/FinalDisclaimer.aspx"
 		post_fill_renewal_reg_url = self.post_renewal_path + "/FinalDisclaimer.aspx"
@@ -158,9 +158,9 @@ class UrlProviders:
 
 	def get_final_print_url(self, std: str, app_id: str, is_renewal: bool) -> str:
 		pre_fill_reg_url = self.pre_path + "/FinalPrintPrematric.aspx"
-		post_fill_reg_url = self.post_renewal_path + "/FinalPrintIntermediate.aspx"
+		post_fill_reg_url = self.post_path + "/FinalPrintIntermediate.aspx"
 
-		pre_fill_renewal_reg_url = self.pre_path + "/renewFinalPrintPrematric.aspx"
+		pre_fill_renewal_reg_url = self.pre_renewal_path + "/renewFinalPrintPrematric.aspx"
 		post_fill_renewal_reg_url = self.post_renewal_path + "/RenewFinalPrint_Inter.aspx"
 
 		return self._make_other_url(
@@ -203,3 +203,16 @@ class UrlProviders:
 		pre_url = "prematric/Fwd_app.aspx"
 		post_url = "prematric/Fwd_app.aspx"
 		return self._make_other_url(False, std, pre_url, pre_url, post_url, post_url)
+	
+	def get_aadhaar_auth_url(self, std: str, app_id: str, is_renewal: bool):
+		pre_url =  self.pre_path + "/AadharAuthPrematric.aspx"
+		post_url = self.post_path + "/AadharAuthIntermediate.aspx"
+
+		pre_renewal_url = self.pre_renewal_path + "/AadharAuthPrematric.aspx"
+		post_renewal_url = self.post_renewal_path + "/AadharAuthIntermediate.aspx"
+		return self._make_other_url(
+			is_renewal,
+			std,
+			pre_url, pre_renewal_url,
+			post_url, post_renewal_url,
+			app_id)
