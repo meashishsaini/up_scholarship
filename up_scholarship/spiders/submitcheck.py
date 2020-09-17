@@ -113,7 +113,7 @@ class SubmitDataspider(scrapy.Spider):
 
 	def save_print(self, response):
 		logger.info('In save print. Last URL: %s', response.url)
-		if self.process_errors(response, TestStrings.error, captcha_check=False):
+		if self.process_errors(response, TestStrings.error):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
@@ -136,7 +136,7 @@ class SubmitDataspider(scrapy.Spider):
 
 	def save_img(self, response):
 		logger.info('In save img. Last URL: %s', response.url)
-		if self.process_errors(response, TestStrings.error, captcha_check=False, html=False):
+		if self.process_errors(response, TestStrings.error, html=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
@@ -149,13 +149,14 @@ class SubmitDataspider(scrapy.Spider):
 			logger.info('Saving student\'s image')
 			utl.save_file_with_name(student, response, WorkType.submit_check, str(datetime.today().year), extension="",
 									extra='/' + f)
-
+			formdata={
+					FormKeys.event_target(): FormKeys.temp_submit_lock(self.cd.current_form_set, form=True)
+				}
+			logger.info(formdata)
 			response = response.meta['old_response']
 			request = scrapy.FormRequest.from_response(
 				response,
-				formdata={
-					FormKeys.event_target(): FormKeys.temp_submit_lock(self.cd.current_form_set, form=True)
-				},
+				formdata=formdata,
 				callback=self.parse,
 				errback=self.errback_next,
 				dont_filter=True,
@@ -177,8 +178,8 @@ class SubmitDataspider(scrapy.Spider):
 			self.i_students = self.skip_to_next_valid()
 			self.tried = 0
 		else:
-			self.process_errors(response, TestStrings.app_default)
-			self.process_errors(response, TestStrings.error)
+			if not self.process_errors(response, TestStrings.app_default):
+				self.process_errors(response, TestStrings.error)
 		self.save_if_done()
 		student = self.students[self.i_students]
 		url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -219,7 +220,7 @@ class SubmitDataspider(scrapy.Spider):
 
 	def get_captcha(self, response):
 		print("In Captcha. Last URL: " + response.url)
-		if self.process_errors(response, TestStrings.error, html=True, captcha_check=False):
+		if self.process_errors(response, TestStrings.error):
 			self.save_if_done()
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -249,9 +250,13 @@ class SubmitDataspider(scrapy.Spider):
 		return_index = -1
 		for x in range(self.i_students, length):
 			student = self.students[x]
-
+			pre =  utl.get_std_category(student[FormKeys.std()]) == StdCategory.pre
+			if student[FormKeys.name()] != "Diksha":
+				continue
 			# If these required keys are not available continue
 			if not utl.check_if_keys_exist(student, self.common_required_keys):
+				continue
+			if student.get(FormKeys.aadhaar_otp_authenticated(), "") != "Y" and not pre:
 				continue
 			reg_year = int(student.get(FormKeys.reg_year(), '')) if len(student.get(FormKeys.reg_year(), '')) > 0 else 0
 			if student.get(FormKeys.skip(), '') == 'N' and reg_year == datetime.today().year and student.get(
@@ -259,14 +264,14 @@ class SubmitDataspider(scrapy.Spider):
 						FormKeys.aadhaar_authenticated(), '') == 'Y' and student.get(
 						FormKeys.submitted_for_check(), '') == 'N':
 				return_index = x
-				if utl.get_std_category(student[FormKeys.std()]) == StdCategory.pre:
+				if pre:
 					self.cd.set_form_set(FormSets.one)
 				else:
 					self.cd.set_form_set(FormSets.four)
 				if student.get(FormKeys.old_reg_no(), '') != '':
 					self.is_renewal = True
 					logger.info('Application is renewal')
-					if utl.get_std_category(student[FormKeys.std()]) == StdCategory.pre:
+					if pre:
 						self.cd.set_form_set(FormSets.four)
 				else:
 					self.is_renewal = False
@@ -279,13 +284,12 @@ class SubmitDataspider(scrapy.Spider):
 		else:
 			return self.no_students
 
-	def process_errors(self, response, check_str, html=True, captcha_check=True):
+	def process_errors(self, response, check_str, html=True):
 		''' Process error and skip to next student if max retries
 			Arguments:
 			response -- scrapy response
 			check_str -- string if needed to check against
 			html -- whether the response is html page
-			captcha_check -- whether captcha error needed to be checked 
 			Returns: boolean
 		'''
 		student = self.students[self.i_students]
@@ -296,11 +300,11 @@ class SubmitDataspider(scrapy.Spider):
 		# If we match the check_str set it to generic error.
 		if response.url.lower().find(check_str.lower()) != -1:
 			error = True
-			errorstr = 'Maximum retries reached'
+			errorstr = 'Unknown error occured'
 		# Process code in url argument
 		elif 'a' in parseq:
 			error = True
-			if parseq['a'][0] == 'c' and captcha_check:
+			if parseq['a'][0] == 'c':
 				errorstr = 'captcha wrong'
 			else:
 				errorstr = 'Error code: ' + parseq['a'][0]
@@ -309,9 +313,13 @@ class SubmitDataspider(scrapy.Spider):
 		if html:
 			error_in = response.xpath(
 				'//*[@id="' + FormKeys.error_lbl() + '"]/text()').extract_first()
-			if error_in == TestStrings.invalid_captcha and captcha_check:
+			if error_in:
+				errorstr = error_in
 				error = True
-				errorstr = 'captcha wrong'
+				if error_in != TestStrings.invalid_captcha and error_in != TestStrings.invalid_captcha_2:
+					self.tried = self.cd.max_tries
+				if error_in == TestStrings.aadhaar_auth_failed:
+					student[FormKeys.skip()] = "Y"
 			# Check if error messages are in scripts
 			else:
 				scripts = response.xpath('//script/text()').extract()
@@ -322,11 +330,11 @@ class SubmitDataspider(scrapy.Spider):
 						error = True
 					# If we have error save page as html file.
 		if error:
-			utl.save_file_with_name(student, response, WorkType.submit_check, str(datetime.today().year), is_debug=True)
+			logger.info("Error string: %s", errorstr)
+			utl.save_file_with_name(student, response, WorkType.aadhaar_auth, str(datetime.today().year), is_debug=True)
 			# Check if we have reached max retries and then move to other students, if available
 			if self.tried >= self.cd.max_tries:
 				student[FormKeys.status()] = errorstr
-				logger.info(errorstr)
 				self.students[self.i_students] = student
 				self.err_students.append(student)
 				self.i_students += 1

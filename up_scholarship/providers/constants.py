@@ -786,6 +786,10 @@ class FormKeys:
 		return 'aadhaar_authenticated'
 
 	@classmethod
+	def aadhaar_otp_authenticated(cls):
+		return 'aadhaar_otp_authenticated'
+
+	@classmethod
 	def submitted_for_check(cls):
 		return 'submitted_for_check'
 
