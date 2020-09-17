@@ -1,39 +1,23 @@
-# -*- coding: utf-8 -*-
-import urllib.parse as urlparse
 import scrapy
-from scrapy.spidermiddlewares.httperror import HttpError
-from twisted.internet.error import DNSLookupError
-from twisted.internet.error import TimeoutError, TCPTimedOutError
 from datetime import datetime
-from up_scholarship.providers.constants import FormKeys, CommonData, TestStrings, WorkType
-from up_scholarship.providers.file_name import FileName
-from up_scholarship.providers import utilities as utl
-from up_scholarship.providers.student_file import StudentFile
-from up_scholarship.providers.url import UrlProviders
-from scrapy.exceptions import CloseSpider
-from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
 import logging
+
+from up_scholarship.providers.constants import FormKeys, TestStrings
+from up_scholarship.spiders.base import BaseSpider
+from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
+from up_scholarship.providers import utilities as utl
 
 logger = logging.getLogger(__name__)
 
-class RenewSpider(scrapy.Spider):
+class RenewSpider(BaseSpider):
 	name = 'renew'
 	no_students = 0
-	i_students = 0
-	tried = 0
-	err_students = []
 	required_keys = [FormKeys.reg_year(), FormKeys.skip(), FormKeys.std(), FormKeys.name(), FormKeys.reg_no(),
 																		FormKeys.dob(), FormKeys.mobile_no()]
 
 	def __init__(self, *args, **kwargs):
 		""" Load student's file and init variables"""
-		super(RenewSpider, self).__init__(*args, **kwargs)
-		logging.getLogger('scrapy').setLevel(logging.ERROR)
-		self.cd = CommonData()
-		self.students = StudentFile().read_file(self.cd.students_in_file, self.cd.file_in_type)
-		self.no_students = len(self.students)
-		self.url_provider = UrlProviders(self.cd)
-		self.file_name_provider = FileName(WorkType.photo)
+		super().__init__(RenewSpider, *args, **kwargs)
 
 	def start_requests(self):
 		self.i_students = self.skip_to_next_valid()
@@ -45,7 +29,7 @@ class RenewSpider(scrapy.Spider):
 
 	def fill_form(self, response):
 		logger.info('In fill form. Last URL: %s', response.url)
-		if self.process_errors(response, TestStrings.error, html=False):
+		if self.process_errors(response, [TestStrings.error], html=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_renew_url(student[FormKeys.caste()], student[FormKeys.std()], student[FormKeys.is_minority()] == 'Y')
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True)
@@ -100,55 +84,20 @@ class RenewSpider(scrapy.Spider):
 			except Exception as err:
 				print(err)
 			self.students[self.i_students] = student
-			utl.save_file_with_name(student, response, WorkType.renew, str(datetime.today().year))
+			utl.save_file_with_name(student, response, self.spider_name, str(datetime.today().year))
 			self.i_students += 1
 			self.i_students = self.skip_to_next_valid()
 			self.tried = 0
 		else:
-			if not self.process_errors(response, TestStrings.renew_form):
-				if not self.process_errors(response, TestStrings.error):
-					self.process_errors(response, TestStrings.registration_new)
+			self.process_errors(response, [TestStrings.renew_form, TestStrings.error, TestStrings.registration_new])
 		self.save_if_done()
 		student = self.students[self.i_students]
 		url = self.url_provider.get_renew_url(student[FormKeys.caste()], student[FormKeys.std()], student[FormKeys.is_minority()] == 'Y')
 		yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 
-	def errback_next(self, failure):
-		""" Process network errors.
-			Keyword arguments:
-			failure -- previous scrapy network failure.
-		"""
-		# log all failures
-		logger.error(repr(failure))
-		errorstr = repr(failure)
-		if failure.check(HttpError):
-			# these exceptions come from HttpError spider middleware
-			response = failure.value.response
-			logger.error('HttpError on %s', response.url)
-			errorstr = 'HttpError on ' + response.url
-
-		elif failure.check(DNSLookupError):
-			# this is the original request
-			request = failure.request
-			logger.error('DNSLookupError on %s', request.url)
-			errorstr = 'DNSLookupError on ' + request.url
-
-		elif failure.check(TimeoutError, TCPTimedOutError):
-			request = failure.request
-			logger.error('TimeoutError on %s', request.url)
-			errorstr = 'TimeoutError on ' + request.url
-
-		# Close spider if we encounter above errors.
-		student = self.students[self.i_students]
-		student[FormKeys.status()] = errorstr
-		self.err_students.append(student)
-		self.students[self.i_students] = student
-		self.i_students = self.no_students
-		self.save_if_done()
-
 	def get_captcha(self, response):
 		logger.info("In Captcha. Last URL %s", response.url)
-		if self.process_errors(response, TestStrings.error):
+		if self.process_errors(response, [TestStrings.error]):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_renew_url(student[FormKeys.caste()], student[FormKeys.std()], student[FormKeys.is_minority()] == 'Y')
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
@@ -194,80 +143,6 @@ class RenewSpider(scrapy.Spider):
 					student[FormKeys.skip()] = 'Y'
 					self.students[x] = student
 		return self.no_students
-
-	def process_errors(self, response, check_str, html=True):
-		''' Process error and skip to next student if max retries
-			Arguments:
-			response -- scrapy response
-			check_str -- string if needed to check against
-			html -- whether the response is html page
-			Returns: boolean
-		'''
-		student = self.students[self.i_students]
-		parsed = urlparse.urlparse(response.url)
-		parseq = urlparse.parse_qs(parsed.query)
-		error = False
-		errorstr = ''
-		# If we match the check_str set it to generic error.
-		if response.url.lower().find(check_str.lower()) != -1:
-			error = True
-			errorstr = 'Unknown error occured'
-		# Process code in url argument
-		elif 'a' in parseq:
-			error = True
-			if parseq['a'][0] == 'c':
-				errorstr = 'captcha wrong'
-			else:
-				errorstr = 'Error code: ' + parseq['a'][0]
-				self.tried = self.cd.max_tries
-		# If the response is html, check for extra errors in the html page
-		if html:
-			error_in = response.xpath(
-				'//*[@id="' + FormKeys.error_lbl() + '"]/text()').extract_first()
-			if error_in:
-				errorstr = error_in
-				error = True
-				if error_in != TestStrings.invalid_captcha and error_in != TestStrings.invalid_captcha_2:
-					self.tried = self.cd.max_tries
-				if error_in == TestStrings.aadhaar_auth_failed:
-					student[FormKeys.skip()] = "Y"
-			# Check if error messages are in scripts
-			else:
-				scripts = response.xpath('//script/text()').extract()
-				for script in scripts:
-					if 10 < len(script) < 120 and script.find(TestStrings.alert) != -1:
-						errorstr = script[7:-1]
-						self.tried = self.cd.max_tries
-						error = True
-					# If we have error save page as html file.
-		if error:
-			logger.info("Error string: %s", errorstr)
-			utl.save_file_with_name(student, response, WorkType.aadhaar_auth, str(datetime.today().year), is_debug=True)
-			# Check if we have reached max retries and then move to other students, if available
-			if self.tried >= self.cd.max_tries:
-				student[FormKeys.status()] = errorstr
-				self.students[self.i_students] = student
-				self.err_students.append(student)
-				self.i_students += 1
-				self.tried = 0
-				self.i_students = self.skip_to_next_valid()
-				self.save_if_done()
-			else:
-				self.tried += 1
-		return error
-
-	def save_if_done(self, raise_exc=True):
-		""" Save student file if all students are done.
-			Keyword arguments:
-			raise_exc -- whether to raise close spider exception.
-		"""
-		if self.i_students >= self.no_students:
-			st_file = StudentFile()
-			utl.copy_file(self.cd.students_in_file, self.cd.students_old_file)
-			st_file.write_file(self.students, self.cd.students_in_file, self.cd.students_out_file, self.cd.file_out_type)
-			st_file.write_file(self.err_students, '', self.cd.students_err_file, self.cd.file_err_type)
-			if raise_exc:
-				raise CloseSpider('All students done')
 
 	def remove_old_values(self, student: dict) -> dict:
 		# student[FormKeys.lastyear_std()] = ''

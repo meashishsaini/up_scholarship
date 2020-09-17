@@ -1,30 +1,17 @@
-# -*- coding: utf-8 -*-
-import os
-import urllib.request
 import urllib.parse as urlparse
 import scrapy
-import hashlib
 from datetime import datetime
-from scrapy.exceptions import CloseSpider
-from up_scholarship.providers.constants import FormKeys, CommonData, TestStrings, StdCategory, FormSets, WorkType
-from up_scholarship.providers import utilities as utl
-from up_scholarship.providers.student_file import StudentFile
-from up_scholarship.providers.url import UrlProviders
-from scrapy.spidermiddlewares.httperror import HttpError
-from twisted.internet.error import DNSLookupError
-from twisted.internet.error import TimeoutError, TCPTimedOutError
-from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
 import logging
+
+from up_scholarship.providers.constants import FormKeys, TestStrings, StdCategory, FormSets
+from up_scholarship.spiders.base import BaseSpider
+from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
+from up_scholarship.providers import utilities as utl
 
 logger = logging.getLogger(__name__)
 
-class AadhaarAuthSpider(scrapy.Spider):
+class AadhaarAuthSpider(BaseSpider):
 	name = 'aadhaarauth'
-	tried = 0
-	no_students = 0
-	i_students = 0
-	err_students = []
-	is_renewal = False
 	common_required_keys = [
 		FormKeys.skip(), FormKeys.std(), FormKeys.reg_no(), FormKeys.dob(), FormKeys.name(), FormKeys.app_filled(),
 		FormKeys.photo_uploaded(), FormKeys.father_name(), FormKeys.submitted_for_check(), FormKeys.aadhaar_authenticated()
@@ -32,12 +19,7 @@ class AadhaarAuthSpider(scrapy.Spider):
 
 	def __init__(self, *args, **kwargs):
 		""" Load student's file and init variables"""
-		super(AadhaarAuthSpider, self).__init__(*args, **kwargs)
-		logging.getLogger('scrapy').setLevel(logging.ERROR)
-		self.cd = CommonData()
-		self.students = StudentFile().read_file(self.cd.students_in_file, self.cd.file_in_type)
-		self.no_students = len(self.students)
-		self.url_provider = UrlProviders(self.cd)
+		super().__init__(AadhaarAuthSpider, *args, **kwargs)
 
 	def start_requests(self):
 		self.i_students = self.skip_to_next_valid()
@@ -49,7 +31,7 @@ class AadhaarAuthSpider(scrapy.Spider):
 
 	def login_form(self, response):
 		logger.info('In login form. Last Url: %s', response.url)
-		if self.process_errors(response, TestStrings.error, html=False):
+		if self.process_errors(response, [TestStrings.error], html=False):
 			self.save_if_done()
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student[FormKeys.std()], self.is_renewal)
@@ -80,7 +62,7 @@ class AadhaarAuthSpider(scrapy.Spider):
 			response -- previous scrapy response.
 		"""
 		logger.info('In accept popup. Last URL: %s', response.url)
-		if self.process_errors(response, TestStrings.error) or self.process_errors(response, TestStrings.login):
+		if self.process_errors(response, [TestStrings.error, TestStrings.login]):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
@@ -118,7 +100,7 @@ class AadhaarAuthSpider(scrapy.Spider):
 			response -- previous scrapy response.
 		"""
 		logger.info('In fill data. Last URL: %s', response.url)
-		if self.process_errors(response, TestStrings.error, html=False):
+		if self.process_errors(response, [TestStrings.error], html=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
@@ -143,7 +125,6 @@ class AadhaarAuthSpider(scrapy.Spider):
 	def parse(self, response):
 		logger.info('In parse. Last URL: %s', response.url)
 		student = self.students[self.i_students]
-		utl.save_file_with_name(student, response, WorkType.aadhaar_auth, str(datetime.today().year), extra="parse", is_debug=True)
 		correct_label = response.xpath(
 			'//*[@id="' + FormKeys.correct_lbl() + '"]/text()').extract_first()
 		logger.info("Correct label: %s", correct_label)
@@ -158,50 +139,15 @@ class AadhaarAuthSpider(scrapy.Spider):
 			self.i_students = self.skip_to_next_valid()
 			self.tried = 0
 		else:
-			if not self.process_errors(response, TestStrings.app_default):
-				if not self.process_errors(response, TestStrings.aadhaar_auth):
-					self.process_errors(response, TestStrings.error)
+			self.process_errors(response, [TestStrings.app_default, TestStrings.aadhaar_auth, TestStrings.error])
 		self.save_if_done()
 		student = self.students[self.i_students]
 		url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
 		yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
 
-	def errback_next(self, failure):
-		""" Process network errors.
-			Keyword arguments:
-			failure -- previous scrapy network failure.
-		"""
-		# log all failures
-		logger.error(repr(failure))
-		errorstr = repr(failure)
-		if failure.check(HttpError):
-			# these exceptions come from HttpError spider middleware
-			response = failure.value.response
-			logger.error('HttpError on %s', response.url)
-			errorstr = 'HttpError on ' + response.url
-
-		elif failure.check(DNSLookupError):
-			# this is the original request
-			request = failure.request
-			logger.error('DNSLookupError on %s', request.url)
-			errorstr = 'DNSLookupError on ' + request.url
-
-		elif failure.check(TimeoutError, TCPTimedOutError):
-			request = failure.request
-			logger.error('TimeoutError on %s', request.url)
-			errorstr = 'TimeoutError on ' + request.url
-
-		# Close spider if we encounter above errors.
-		student = self.students[self.i_students]
-		student[FormKeys.status()] = errorstr
-		self.err_students.append(student)
-		self.students[self.i_students] = student
-		self.i_students = self.no_students
-		self.save_if_done()
-
 	def get_captcha(self, response):
 		logger.info("In Captcha. Last URL: " + response.url)
-		if self.process_errors(response, TestStrings.error):
+		if self.process_errors(response, [TestStrings.error]):
 			self.save_if_done()
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student.get(FormKeys.std(), ''), self.is_renewal)
@@ -217,19 +163,6 @@ class AadhaarAuthSpider(scrapy.Spider):
 									 errback=self.errback_next)
 			request.meta['old_response'] = response
 			yield request
-
-	def save_if_done(self, raise_exc=True):
-		''' Save student file if all students are done.
-			Keyword arguments:
-			raise_exc -- whether to raise close spider exception.
-		'''
-		if self.i_students >= self.no_students:
-			st_file = StudentFile()
-			utl.copy_file(self.cd.students_in_file, self.cd.students_old_file)
-			st_file.write_file(self.students, self.cd.students_in_file, self.cd.students_out_file, self.cd.file_out_type)
-			st_file.write_file(self.err_students, '', self.cd.students_err_file, self.cd.file_err_type)
-			if raise_exc:
-				raise CloseSpider('All students done')
 
 	def skip_to_next_valid(self) -> int:
 		length = len(self.students)
@@ -265,66 +198,6 @@ class AadhaarAuthSpider(scrapy.Spider):
 		else:
 			return self.no_students
 
-	def process_errors(self, response, check_str, html=True):
-		''' Process error and skip to next student if max retries
-			Arguments:
-			response -- scrapy response
-			check_str -- string if needed to check against
-			html -- whether the response is html page
-			Returns: boolean
-		'''
-		student = self.students[self.i_students]
-		parsed = urlparse.urlparse(response.url)
-		parseq = urlparse.parse_qs(parsed.query)
-		error = False
-		errorstr = ''
-		# If we match the check_str set it to generic error.
-		if response.url.lower().find(check_str.lower()) != -1:
-			error = True
-			errorstr = 'Unknown error occured'
-		# Process code in url argument
-		elif 'a' in parseq:
-			error = True
-			if parseq['a'][0] == 'c':
-				errorstr = 'captcha wrong'
-			else:
-				errorstr = 'Error code: ' + parseq['a'][0]
-				self.tried = self.cd.max_tries
-		# If the response is html, check for extra errors in the html page
-		if html:
-			error_in = response.xpath(
-				'//*[@id="' + FormKeys.error_lbl() + '"]/text()').extract_first()
-			if error_in:
-				errorstr = error_in
-				error = True
-				if error_in != TestStrings.invalid_captcha and error_in != TestStrings.invalid_captcha_2:
-					self.tried = self.cd.max_tries
-				if error_in == TestStrings.aadhaar_auth_failed:
-					student[FormKeys.skip()] = "Y"
-			# Check if error messages are in scripts
-			else:
-				scripts = response.xpath('//script/text()').extract()
-				for script in scripts:
-					if 10 < len(script) < 120 and script.find(TestStrings.alert) != -1:
-						errorstr = script[7:-1]
-						self.tried = self.cd.max_tries
-						error = True
-					# If we have error save page as html file.
-		if error:
-			logger.info("Error string: %s", errorstr)
-			utl.save_file_with_name(student, response, WorkType.aadhaar_auth, str(datetime.today().year), is_debug=True)
-			# Check if we have reached max retries and then move to other students, if available
-			if self.tried >= self.cd.max_tries:
-				student[FormKeys.status()] = errorstr
-				self.students[self.i_students] = student
-				self.err_students.append(student)
-				self.i_students += 1
-				self.tried = 0
-				self.i_students = self.skip_to_next_valid()
-				self.save_if_done()
-			else:
-				self.tried += 1
-		return error
 	def get_fill_form_data(self, student: dict, captcha_value: str) -> dict:
 		""" Create and return the form data
 			Keyword arguments:
