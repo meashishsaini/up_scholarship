@@ -125,7 +125,7 @@ class UploadPhotoSpider(scrapy.Spider):
 
 	def upload_photo(self, response):
 		logger.info('In upload photo. Last URL: %s', response.url)
-		if self.process_errors(response, TestStrings.error, html=False, captcha_check=False):
+		if self.process_errors(response, TestStrings.error, html=False):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student[FormKeys.std()], self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
@@ -196,8 +196,8 @@ class UploadPhotoSpider(scrapy.Spider):
 			self.i_students = self.skip_to_next_valid()
 			self.tried = 0
 		else:
-			self.process_errors(response, TestStrings.photo_upload)
-			self.process_errors(response, TestStrings.error)
+			if not self.process_errors(response, TestStrings.photo_upload):
+				self.process_errors(response, TestStrings.error)
 		self.save_if_done()
 		student = self.students[self.i_students]
 		url = self.url_provider.get_login_reg_url(student[FormKeys.std()], self.is_renewal)
@@ -233,7 +233,7 @@ class UploadPhotoSpider(scrapy.Spider):
 
 	def get_captcha(self, response):
 		print("In Captcha: " + response.url)
-		if self.process_errors(response, TestStrings.error, html=True, captcha_check=False):
+		if self.process_errors(response, TestStrings.error):
 			student = self.students[self.i_students]
 			url = self.url_provider.get_login_reg_url(student[FormKeys.std()], self.is_renewal)
 			yield scrapy.Request(url=url, callback=self.get_captcha, dont_filter=True, errback=self.errback_next)
@@ -310,13 +310,12 @@ class UploadPhotoSpider(scrapy.Spider):
 		else:
 			return self.no_students
 
-	def process_errors(self, response, check_str, html=True, captcha_check=True):
+	def process_errors(self, response, check_str, html=True):
 		''' Process error and skip to next student if max retries
 			Arguments:
 			response -- scrapy response
 			check_str -- string if needed to check against
 			html -- whether the response is html page
-			captcha_check -- whether captcha error needed to be checked 
 			Returns: boolean
 		'''
 		student = self.students[self.i_students]
@@ -327,11 +326,11 @@ class UploadPhotoSpider(scrapy.Spider):
 		# If we match the check_str set it to generic error.
 		if response.url.lower().find(check_str.lower()) != -1:
 			error = True
-			errorstr = 'Maximum retries reached'
+			errorstr = 'Unknown error occured'
 		# Process code in url argument
 		elif 'a' in parseq:
 			error = True
-			if parseq['a'][0] == 'c' and captcha_check:
+			if parseq['a'][0] == 'c':
 				errorstr = 'captcha wrong'
 			else:
 				errorstr = 'Error code: ' + parseq['a'][0]
@@ -339,10 +338,14 @@ class UploadPhotoSpider(scrapy.Spider):
 		# If the response is html, check for extra errors in the html page
 		if html:
 			error_in = response.xpath(
-				'//*[@id="' + FormKeys.error_lbl(self.cd.current_form_set) + '"]/text()').extract_first()
-			if error_in == TestStrings.invalid_captcha and captcha_check:
+				'//*[@id="' + FormKeys.error_lbl() + '"]/text()').extract_first()
+			if error_in:
+				errorstr = error_in
 				error = True
-				errorstr = 'captcha wrong'
+				if error_in != TestStrings.invalid_captcha and error_in != TestStrings.invalid_captcha_2:
+					self.tried = self.cd.max_tries
+				if error_in == TestStrings.aadhaar_auth_failed:
+					student[FormKeys.skip()] = "Y"
 			# Check if error messages are in scripts
 			else:
 				scripts = response.xpath('//script/text()').extract()
@@ -351,13 +354,13 @@ class UploadPhotoSpider(scrapy.Spider):
 						errorstr = script[7:-1]
 						self.tried = self.cd.max_tries
 						error = True
-				# If we have error save page as html file.
+					# If we have error save page as html file.
 		if error:
-			utl.save_file_with_name(student, response, WorkType.photo,str(datetime.today().year), is_debug=True)
+			logger.info("Error string: %s", errorstr)
+			utl.save_file_with_name(student, response, WorkType.aadhaar_auth, str(datetime.today().year), is_debug=True)
 			# Check if we have reached max retries and then move to other students, if available
 			if self.tried >= self.cd.max_tries:
 				student[FormKeys.status()] = errorstr
-				logger.info(errorstr)
 				self.students[self.i_students] = student
 				self.err_students.append(student)
 				self.i_students += 1
