@@ -36,8 +36,7 @@ class TestStrings:
 	app_fill_form = 'Form'
 	renew_form = 'Renew'
 	alert = 'alert'
-	invalid_captcha = 'Invalid Captcha.!!'
-	invalid_captcha_2 = "Invalid Captcha...! Try Again."
+	invalid_captcha = ['Invalid Captcha.!!', "Invalid Captcha...! Try Again.", "Invalid Captcha !"]
 	matched = 'yes'
 	final_print = 'finalprint'
 	show_image = 'showimage'
