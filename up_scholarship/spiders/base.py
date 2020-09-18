@@ -6,8 +6,10 @@ from twisted.internet.error import DNSLookupError
 from twisted.internet.error import TimeoutError, TCPTimedOutError
 from scrapy.exceptions import CloseSpider
 import logging
+from dataclasses import dataclass
+from datetime import datetime
 
-from up_scholarship.providers.constants import FormKeys, CommonData, TestStrings
+from up_scholarship.providers.constants import FormKeys, CommonData, TestStrings, StdCategory
 from up_scholarship.providers.student_file import StudentFile
 from up_scholarship.providers import utilities as utl
 from up_scholarship.providers.url import UrlProviders
@@ -15,16 +17,25 @@ from up_scholarship.providers.codes import CodeFileReader
 
 logger = logging.getLogger(__name__)
 
+@dataclass
+class SkipConfig:
+	check_valid_year = True
+	allow_renew = False
+	satisfy_criteria = ""
+	common_required_keys = []
+	pre_required_keys = []
+	post_required_keys = []
+
 class BaseSpider(scrapy.Spider):
 
-	def __init__(self, cls, *args, **kwargs):
+	def __init__(self, cls, skip_config: SkipConfig, *args, **kwargs):
 		""" Load student"s file and init variables"""
 		self.spider_name = self.name
-		super().__init__(cls, *args, **kwargs)
 		logging.getLogger("scrapy").setLevel(logging.ERROR)
+		super().__init__(cls, *args, **kwargs)
 		self.cd = CommonData()
 		self.students = StudentFile().read_file(self.cd.students_in_file, self.cd.file_in_type)
-		self.no_students = len(self.students)
+		self.total_students = len(self.students)
 		self.url_provider = UrlProviders(self.cd)
 		self.district = CodeFileReader(self.cd.district_file)
 		self.institute = CodeFileReader(self.cd.institute_file)
@@ -36,9 +47,13 @@ class BaseSpider(scrapy.Spider):
 		self.course = CodeFileReader(self.cd.course_file)
 		self.sub_caste = CodeFileReader(self.cd.sub_caste_file)
 		self.tried = 0  # Number of times we have tried filling data for a students.
-		self.i_students = 0  # Current student"s index in student"s list.
+		self.current_student_index = 0  # Current student"s index in student"s list.
 		self.err_students = []  # List of students we encountered error for.
 		self.is_renewal = False  # Stores whether the current student is renewal.
+		self.skip_config = skip_config
+		self.student = None
+		self.skip_to_next_valid(raise_exc=False)
+
 
 
 	def process_errors(self, response, check_strings: list, html=True):
@@ -49,7 +64,6 @@ class BaseSpider(scrapy.Spider):
 			html -- whether the response is html page
 			Returns: boolean
 		"""
-		student = self.students[self.i_students]
 		parsed = urlparse.urlparse(response.url)
 		parseq = urlparse.parse_qs(parsed.query)
 		error = False
@@ -78,7 +92,7 @@ class BaseSpider(scrapy.Spider):
 				if error_in not in TestStrings.invalid_captcha:
 					self.tried = self.cd.max_tries
 				if error_in == TestStrings.aadhaar_auth_failed:
-					student[FormKeys.skip()] = "Y"
+					self.student[FormKeys.skip()] = "Y"
 			# Check if error messages are in scripts
 			else:
 				scripts = response.xpath("//script/text()").extract()
@@ -90,28 +104,24 @@ class BaseSpider(scrapy.Spider):
 					# If we have error save page as html file.
 		if error:
 			logger.info("Error string: %s", errorstr)
-			utl.save_file_with_name(student, response, self.spider_name, str(datetime.today().year), tried=self.tried, is_debug=True)
+			utl.save_file_with_name(self.student, response, self.spider_name, str(datetime.today().year), tried=self.tried, is_debug=True)
 			# Check if we have reached max retries and then move to other students, if available
 			if self.tried >= self.cd.max_tries:
-				student[FormKeys.status()] = errorstr
-				self.students[self.i_students] = student
-				self.err_students.append(student)
-				self.i_students += 1
-				self.tried = 0
-				self.i_students = self.skip_to_next_valid()
-				self.save_if_done()
+				self.student[FormKeys.status()] = errorstr
+				self.students[self.current_student_index] = self.student
+				self.err_students.append(self.student)
+				self.skip_to_next_valid()
 			else:
 				self.tried += 1
 		return error
 
-	def save_if_done(self, raise_exc=True):
-		if self.i_students >= self.no_students:
-			st_file = StudentFile()
-			utl.copy_file(self.cd.students_in_file, self.cd.students_old_file)
-			st_file.write_file(self.students, self.cd.students_in_file, self.cd.students_out_file, self.cd.file_out_type)
-			st_file.write_file(self.err_students, "", self.cd.students_err_file, self.cd.file_err_type)
-			if raise_exc:
-				raise CloseSpider("All students done")
+	def save_and_done(self, raise_exc=True):
+		st_file = StudentFile()
+		utl.copy_file(self.cd.students_in_file, self.cd.students_old_file)
+		st_file.write_file(self.students, self.cd.students_in_file, self.cd.students_out_file, self.cd.file_out_type)
+		st_file.write_file(self.err_students, "", self.cd.students_err_file, self.cd.file_err_type)
+		if raise_exc:
+			raise CloseSpider("All students done")
 	
 	def errback_next(self, failure):
 		""" Process network errors.
@@ -139,9 +149,46 @@ class BaseSpider(scrapy.Spider):
 			error_str = "TimeoutError on " + request.url
 
 		# Close spider if we encounter above errors.
-		student = self.students[self.i_students]
-		student[FormKeys.status()] = error_str
-		self.err_students.append(student)
-		self.students[self.i_students] = student
-		self.i_students = self.no_students
-		self.save_if_done()
+		self.student[FormKeys.status()] = error_str
+		self.err_students.append(self.student)
+		self.students[self.current_student_index] = self.student
+		self.save_and_done()
+
+	def skip_to_next_valid(self, raise_exc=True) -> int:
+		self.student = None
+		current_year = datetime.now().year
+		self.tried = 0	# Set tried to 0 because we are most probably getting next student or none
+		for self.current_student_index in range(self.current_student_index + 1, self.total_students):
+			student = self.students[self.current_student_index]
+			if not utl.check_if_keys_exist(student, self.skip_config.common_required_keys):
+				continue
+			std_category = utl.get_std_category(student[FormKeys.std()])
+			if std_category is StdCategory.pre:
+				if not utl.check_if_keys_exist(student, self.skip_config.pre_required_keys):
+					continue
+			elif std_category is StdCategory.post:
+				if not utl.check_if_keys_exist(student, self.skip_config.post_required_keys):
+					continue
+			else:
+				continue
+			if student.get(FormKeys.skip()) is "Y":
+				continue
+			if self.skip_config.satisfy_criteria and student.get(self.self.skip_config.satisfy_criteria) is not "Y":
+				continue
+			student_reg_year = student.get(FormKeys.reg_year())
+			if self.skip_config.check_valid_year:
+				if not student_reg_year:
+					continue
+				elif self.skip_config.allow_renew:
+					if int(student_reg_year) is not current_year-1:
+						# We can't renew if there is more than one year gap between last scholarship
+						continue
+				elif int(student_reg_year) is not current_year:
+					continue
+			elif student_reg_year:
+				continue
+			self.student = student
+			break
+		if not self.student:
+			self.save_and_done(raise_exc)
+		
