@@ -124,12 +124,10 @@ def get_login_institute_password(password: str):
 
 
 def check_if_keys_exist(data: dict, in_keys: list) -> bool:
-	keys = data.keys()
-	for in_key in in_keys:
-		for key in keys:
-			if in_key == key:
-				return True
-	return False
+	for key in in_keys:
+		if key not in data:
+			return False
+	return True
 
 
 def get_std_category(std: str) -> StdCategory:
