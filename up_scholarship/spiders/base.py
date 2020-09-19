@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 class SkipConfig:
 	check_valid_year = True
 	allow_renew = False
-	satisfy_criteria = ""
+	satisfy_criterias = []
+	disatisfy_criterias = [] # Criteria which should be marked as N
 	common_required_keys = []
 	pre_required_keys = []
 	post_required_keys = []
@@ -173,8 +174,12 @@ class BaseSpider(scrapy.Spider):
 				continue
 			if student.get(FormKeys.skip()) is "Y":
 				continue
-			if self.skip_config.satisfy_criteria and student.get(self.self.skip_config.satisfy_criteria) is not "Y":
-				continue
+			for satisfy_criteria in self.skip_config.satisfy_criterias:
+				if student.get(satisfy_criteria) is not "Y":
+					continue
+			for disatisfy_criteria in self.skip_config.disatisfy_criterias:
+				if student.get(disatisfy_criteria) is not "N":
+					continue
 			student_reg_year = student.get(FormKeys.reg_year())
 			if self.skip_config.check_valid_year:
 				if not student_reg_year:
@@ -183,9 +188,15 @@ class BaseSpider(scrapy.Spider):
 					if int(student_reg_year) is not current_year-1:
 						# We can't renew if there is more than one year gap between last scholarship
 						continue
+					if student.get(FormKeys.std()) is not "11" or student.get(FormKeys.std()) is not "9":
+						# Renew can only be done for 9th and 11th
+						continue
 				elif int(student_reg_year) is not current_year:
 					continue
 			elif student_reg_year:
+				continue
+			# We only support our own school for now
+			if student.get(FormKeys.institute()).lower() != "parmeswari saran h s s shivpuri  block--suar":
 				continue
 			self.student = student
 			break
