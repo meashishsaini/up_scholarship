@@ -4,10 +4,9 @@ from tensorflow import keras
 from up_scholarship.providers.utilities import resize_to_fit
 import numpy as np
 import imutils
-import cv2
 import pickle
 import requests
-import cv2
+from cv2 import cv2
 
 MODEL_FILENAME = "up_scholarship/tools/captcha_models/captcha_model.hdf5"
 MODEL_LABELS_FILENAME = "up_scholarship/tools/captcha_models/captcha_model_labels.dat"
@@ -31,7 +30,6 @@ def get_captcha_string(captcha_image_file) -> str:
 
 		# Increase image size for better recognition
 		image = cv2.resize(image, None, fx=3.3, fy=3.3, interpolation=cv2.INTER_CUBIC)
-		temp_img = image.copy()
 		# Remove noise from image
 		image = cv2.fastNlMeansDenoising(src=image, h=40)
 		
@@ -108,7 +106,7 @@ def get_captcha_string(captcha_image_file) -> str:
 				x, y, w, h = letter_bounding_box
 
 				# For saving original height to detect difference b/w upper and lower characters
-				(x2, y2, w2, h2) = cv2.boundingRect(image)
+				(_, _, _, h2) = cv2.boundingRect(image)
 
 				# Extract the letter from the original image with a 2-pixel margin around the edge
 				letter_image = image[0:y + h2 + 2, x - 2:x + w + 2]

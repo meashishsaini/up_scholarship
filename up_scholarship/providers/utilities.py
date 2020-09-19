@@ -11,15 +11,12 @@ from up_scholarship.providers.file_name import FileName
 from up_scholarship.providers.constants import FormKeys
 from pathlib import Path
 import imutils
-import cv2
+from cv2 import cv2
 import io
 from Crypto.Cipher import AES
 import base64
 import binascii
-try:
-	from StringIO import StringIO
-except ImportError:
-	from io import StringIO
+from io import StringIO
 
 class PKCS7Encoder(object):
 	def __init__(self, k=16):
