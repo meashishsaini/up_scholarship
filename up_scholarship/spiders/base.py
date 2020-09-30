@@ -161,43 +161,57 @@ class BaseSpider(scrapy.Spider):
 		self.tried = 0	# Set tried to 0 because we are most probably getting next student or none
 		for self.current_student_index in range(self.current_student_index + 1, self.total_students):
 			student = self.students[self.current_student_index]
+			logger.info("Checking student: Name: %s Std: %s", student.get(FormKeys.name()), student.get(FormKeys.std()))
 			if not utl.check_if_keys_exist(student, self.skip_config.common_required_keys):
+				logger.warning("Common required keys not found. Keys: %s", self.skip_config.common_required_keys)
 				continue
 			std_category = utl.get_std_category(student[FormKeys.std()])
 			if std_category is StdCategory.pre:
 				if not utl.check_if_keys_exist(student, self.skip_config.pre_required_keys):
+					logger.warning("Pre required keys not found. Keys: %s", self.skip_config.pre_required_keys)
 					continue
 			elif std_category is StdCategory.post:
 				if not utl.check_if_keys_exist(student, self.skip_config.post_required_keys):
+					logger.warning("Post required keys not found. Keys: %s", self.skip_config.post_required_keys)
 					continue
 			else:
 				continue
 			if student.get(FormKeys.skip()) is "Y":
+				logger.warning("Marked for skipping.")
 				continue
 			for satisfy_criteria in self.skip_config.satisfy_criterias:
 				if student.get(satisfy_criteria) is not "Y":
+					logger.warning("Criterias not satisfied. Criterias: %s", self.skip_config.satisfy_criterias)
 					continue
 			for disatisfy_criteria in self.skip_config.disatisfy_criterias:
 				if student.get(disatisfy_criteria) is not "N":
+					logger.warning("Disatisfy criterias not satisfied. Criterias: %s", self.skip_config.disatisfy_criterias)
 					continue
 			student_reg_year = student.get(FormKeys.reg_year())
 			if self.skip_config.check_valid_year:
 				if not student_reg_year:
+					logger.warning("No Registration year.")
 					continue
 				elif self.skip_config.allow_renew:
 					if int(student_reg_year) is not current_year-1:
 						# We can't renew if there is more than one year gap between last scholarship
+						logger.warning("Scholarship can't be renewed. Reg Year: %s", student_reg_year)
 						continue
-					if student.get(FormKeys.std()) is not "11" or student.get(FormKeys.std()) is not "9":
+					if student.get(FormKeys.std()) is not "11" or student.get(FormKeys.std()) is not "09":
 						# Renew can only be done for 9th and 11th
+						logger.warning("Scholarship can't be renewed. Current std: %s", student.get(FormKeys.std()))
 						continue
 				elif int(student_reg_year) is not current_year:
+					logger.warning("Registration year is not current. Reg year: %s", student_reg_year)
 					continue
+			# Student already registered.
 			elif student_reg_year:
+				logger.warning("Student already registered. Current std: %s", student_reg_year)
 				continue
-			# We only support our own school for now
+			# We only support our own school for now and our school is till high school
 			if student.get(FormKeys.institute()).lower() != "parmeswari saran h s s shivpuri  block--suar":
 				continue
+			logger.info("Student selected: Name: %s Std: %s", student.get(FormKeys.name()), student.get(FormKeys.std()))
 			self.student = student
 			break
 		if not self.student:
