@@ -176,15 +176,15 @@ class BaseSpider(scrapy.Spider):
 					continue
 			else:
 				continue
-			if student.get(FormKeys.skip()) is "Y":
+			if student.get(FormKeys.skip()) == "Y":
 				logger.warning("Marked for skipping.")
 				continue
 			for satisfy_criteria in self.skip_config.satisfy_criterias:
-				if student.get(satisfy_criteria) is not "Y":
+				if student.get(satisfy_criteria) != "Y":
 					logger.warning("Criterias not satisfied. Criterias: %s", self.skip_config.satisfy_criterias)
 					continue
 			for disatisfy_criteria in self.skip_config.disatisfy_criterias:
-				if student.get(disatisfy_criteria) is not "N":
+				if student.get(disatisfy_criteria) != "N":
 					logger.warning("Disatisfy criterias not satisfied. Criterias: %s", self.skip_config.disatisfy_criterias)
 					continue
 			student_reg_year = student.get(FormKeys.reg_year())
@@ -193,15 +193,15 @@ class BaseSpider(scrapy.Spider):
 					logger.warning("No Registration year.")
 					continue
 				elif self.skip_config.allow_renew:
-					if int(student_reg_year) is not current_year-1:
+					if int(student_reg_year) != current_year-1:
 						# We can't renew if there is more than one year gap between last scholarship
 						logger.warning("Scholarship can't be renewed. Reg Year: %s", student_reg_year)
 						continue
-					if student.get(FormKeys.std()) is not "11" or student.get(FormKeys.std()) is not "09":
+					if student.get(FormKeys.std()) != "11" or student.get(FormKeys.std()) != "09":
 						# Renew can only be done for 9th and 11th
 						logger.warning("Scholarship can't be renewed. Current std: %s", student.get(FormKeys.std()))
 						continue
-				elif int(student_reg_year) is not current_year:
+				elif int(student_reg_year) != current_year:
 					logger.warning("Registration year is not current. Reg year: %s", student_reg_year)
 					continue
 			# Student already registered.
