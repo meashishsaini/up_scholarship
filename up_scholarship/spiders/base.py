@@ -154,6 +154,14 @@ class BaseSpider(scrapy.Spider):
 		self.err_students.append(self.student)
 		self.students[self.current_student_index] = self.student
 		self.save_and_done()
+	
+	def mark_is_renew(self):
+		if self.student.get(FormKeys.old_reg_no()):
+			logger.info("Application is renewal.")
+			self.is_renewal = True
+		else:
+			logger.info("Application is not renewal.")
+			self.is_renewal = False
 
 	def skip_to_next_valid(self, raise_exc=True) -> int:
 		self.student = None
@@ -179,14 +187,19 @@ class BaseSpider(scrapy.Spider):
 			if student.get(FormKeys.skip()) == "Y":
 				logger.warning("Marked for skipping.")
 				continue
+			skip_student = False
 			for satisfy_criteria in self.skip_config.satisfy_criterias:
 				if student.get(satisfy_criteria) != "Y":
 					logger.warning("Criterias not satisfied. Criterias: %s", self.skip_config.satisfy_criterias)
-					continue
+					skip_student = True
+					break
 			for disatisfy_criteria in self.skip_config.disatisfy_criterias:
 				if student.get(disatisfy_criteria) != "N":
 					logger.warning("Disatisfy criterias not satisfied. Criterias: %s", self.skip_config.disatisfy_criterias)
-					continue
+					skip_student = True
+					break
+			if skip_student:
+				continue
 			student_reg_year = student.get(FormKeys.reg_year())
 			if self.skip_config.check_valid_year:
 				if not student_reg_year:
@@ -209,10 +222,13 @@ class BaseSpider(scrapy.Spider):
 				logger.warning("Student already registered. Current std: %s", student_reg_year)
 				continue
 			# We only support our own school for now and our school is till high school
-			if student.get(FormKeys.institute()).lower() != "parmeswari saran h s s shivpuri  block--suar":
+			if student.get(FormKeys.institute()).lower() != "parmeswari saran h s s shivpuri  block--suar" and \
+				utl.get_std_category(student.get(FormKeys.std())) == StdCategory.pre:
+				logger.warning("Not our school. Institute: %s",  student.get(FormKeys.institute()))
 				continue
 			logger.info("Student selected: Name: %s Std: %s", student.get(FormKeys.name()), student.get(FormKeys.std()))
 			self.student = student
+			self.mark_is_renew()
 			break
 		if not self.student:
 			self.save_and_done(raise_exc)
