@@ -22,8 +22,8 @@ class FinalSubmitDataSpider(BaseSpider):
 		skip_config = SkipConfig()
 		skip_config.common_required_keys = self.common_required_keys
 		skip_config.satisfy_criterias = [FormKeys.submitted_for_check()]
-		skip_config.disatisfy_criteria = [FormKeys.final_submitted()]
-		super().__init__(FinalSubmitDataSpider, *args, **kwargs)
+		skip_config.disatisfy_criterias = [FormKeys.final_submitted()]
+		super().__init__(FinalSubmitDataSpider, skip_config, *args, **kwargs)
 
 	def start_requests(self):
 		if self.student:

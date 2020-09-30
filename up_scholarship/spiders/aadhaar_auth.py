@@ -23,7 +23,7 @@ class AadhaarAuthSpider(BaseSpider):
 		skip_config.common_required_keys = self.common_required_keys
 		skip_config.satisfy_criterias = [FormKeys.photo_uploaded()]
 		skip_config.disatisfy_criterias = [FormKeys.aadhaar_authenticated()]
-		super().__init__(AadhaarAuthSpider, skip_config *args, **kwargs)
+		super().__init__(AadhaarAuthSpider, skip_config, *args, **kwargs)
 
 	def start_requests(self):
 		if self.student:

@@ -22,7 +22,7 @@ class ReceiveAppSpider(BaseSpider):
 		skip_config.common_required_keys = self.common_required_keys
 		skip_config.disatisfy_criterias = [FormKeys.app_received()]
 		skip_config.satisfy_criterias = [FormKeys.final_submitted()]
-		super().__init__(ReceiveAppSpider, skip_config *args, **kwargs)
+		super().__init__(ReceiveAppSpider, skip_config, *args, **kwargs)
 
 	# self.board = CodeFileReader(self.cd.board_file)
 

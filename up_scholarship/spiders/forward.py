@@ -22,7 +22,7 @@ class ForwardAppSpider(BaseSpider):
 		skip_config.common_required_keys = self.common_required_keys
 		skip_config.disatisfy_criterias = [FormKeys.app_forwarded()]
 		skip_config.satisfy_criterias = [FormKeys.app_verified()]
-		super().__init__(ForwardAppSpider, skip_config *args, **kwargs)
+		super().__init__(ForwardAppSpider, skip_config, *args, **kwargs)
 
 	# self.board = CodeFileReader(self.cd.board_file)
 

@@ -38,7 +38,7 @@ class FillDataSpider(BaseSpider):
 		skip_config.pre_required_keys = self.pre_required_keys
 		skip_config.post_required_keys = self.post_required_keys
 		skip_config.disatisfy_criterias = [FormKeys.app_filled()]
-		super().__init__(FillDataSpider, skip_config *args, **kwargs)
+		super().__init__(FillDataSpider, skip_config, *args, **kwargs)
 
 	def start_requests(self):
 		""" Load student's file and get login page if we have some students"""
