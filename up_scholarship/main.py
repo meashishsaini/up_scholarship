@@ -5,7 +5,7 @@ import argparse
 
 def parse():
 	parser = argparse.ArgumentParser()
-	spiders_list = ["register", "filldata", "uploadphoto", "submitcheck", "renew", "submitfinal", "receive", "verify", "forward", "aadhaarauth"]
+	spiders_list = ["register", "filldata", "uploadphoto", "submitcheck", "renew", "submitfinal", "receive", "verify", "forward", "aadhaarauth", "savecaptchas"]
 	tools_list = ["scanphoto", "convert2pdf", "printfinal", "donestudent"]
 	parser.add_argument('work', help="tell which spider needed to be run.", choices=spiders_list + tools_list)
 	parser.add_argument("--filepath", "-f", help="path of input file", type=str)
@@ -44,6 +44,9 @@ def parse():
 		elif args.work == "aadhaarauth":
 			from up_scholarship.spiders.aadhaar_auth import AadhaarAuthSpider
 			process.crawl(AadhaarAuthSpider)
+		elif args.work == "savecaptchas":
+			from up_scholarship.spiders.save_captchas import SaveCatpchasSpider
+			process.crawl(SaveCatpchasSpider)
 		process.start()
 	elif args.work == "scanphoto":
 		from up_scholarship.tools.photo_scan_helper import scan_photos
