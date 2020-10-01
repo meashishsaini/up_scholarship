@@ -29,11 +29,12 @@ class SkipConfig:
 
 class BaseSpider(scrapy.Spider):
 
-	def __init__(self, cls, skip_config: SkipConfig, *args, **kwargs):
+	def __init__(self, cls, skip_config: SkipConfig, auto_skip=True, *args, **kwargs):
 		""" Load student"s file and init variables"""
 		self.spider_name = self.name
 		logging.getLogger("scrapy").setLevel(logging.ERROR)
 		super().__init__(cls, *args, **kwargs)
+		self.auto_skip = auto_skip
 		self.cd = CommonData()
 		self.students = StudentFile().read_file(self.cd.students_in_file, self.cd.file_in_type)
 		self.total_students = len(self.students)
@@ -53,7 +54,8 @@ class BaseSpider(scrapy.Spider):
 		self.is_renewal = False  # Stores whether the current student is renewal.
 		self.skip_config = skip_config
 		self.student = None
-		self.skip_to_next_valid(raise_exc=False)
+		if self.auto_skip:
+			self.skip_to_next_valid(raise_exc=False)
 
 
 
@@ -111,7 +113,8 @@ class BaseSpider(scrapy.Spider):
 				self.student[FormKeys.status()] = errorstr
 				self.students[self.current_student_index] = self.student
 				self.err_students.append(self.student)
-				self.skip_to_next_valid()
+				if self.auto_skip:
+					self.skip_to_next_valid()
 			else:
 				self.tried += 1
 		return error
