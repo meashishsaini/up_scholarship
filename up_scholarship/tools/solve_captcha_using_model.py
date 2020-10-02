@@ -1,3 +1,5 @@
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import logging
 import tensorflow as tf
 from tensorflow import keras
@@ -8,7 +10,7 @@ import pickle
 import requests
 from cv2 import cv2
 
-MODEL_FILENAME = "up_scholarship/tools/captcha_models/captcha_model.hdf5"
+MODEL_FILENAME = "up_scholarship/tools/captcha_models/captcha_model"
 MODEL_LABELS_FILENAME = "up_scholarship/tools/captcha_models/captcha_model_labels.dat"
 
 def get_captcha_string(captcha_image_file) -> str:
