@@ -324,8 +324,9 @@ class FillDataSpider(BaseSpider):
 			form_data[FormKeys.lastyear_percentage(form=True)] = percentage
 			form_data[FormKeys.address_same(form=True)] = 'on'
 
-		# Only fill caste data if the student is not muslim.
-		if self.religion.get_code(self.student.get(FormKeys.religion(), '')) != self.religion.get_code('muslim'):
+		# Only fill caste data if the student is not muslim or of general caste.
+		if self.religion.get_code(self.student.get(FormKeys.religion(), '')) != self.religion.get_code('muslim') and \
+			self.student.get(FormKeys.caste(), "").lower() != "gen":
 			form_data[FormKeys.subcaste(form=True)] = self.sub_caste.get_code(self.student.get(FormKeys.subcaste(), ''))
 			form_data[FormKeys.caste_cert_issue_date(form=True, pre=pre)] = self.student.get(
 				FormKeys.caste_cert_issue_date(), '')
