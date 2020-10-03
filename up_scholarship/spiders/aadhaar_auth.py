@@ -124,6 +124,9 @@ class AadhaarAuthSpider(BaseSpider):
 		correct_label = correct_label if correct_label else ""
 		if response.url.lower().find(TestStrings.app_default) == -1 and correct_label == TestStrings.aadhaar_authenticated:
 			self.student[FormKeys.aadhaar_authenticated()] = "Y"
+			# Std 9 and does not require OTP verification
+			if utl.get_std_category(self.student.get(FormKeys.std())) == StdCategory.pre:
+				self.student[FormKeys.aadhaar_otp_authenticated()] = "Y"
 			self.student[FormKeys.status()] = "Success"
 			self.students[self.current_student_index] = self.student
 			logger.info("----------------Aadhaar got authenticated---------------")
