@@ -229,11 +229,12 @@ class ForwardAppSpider(BaseSpider):
 				message = "Application successfully forwarded.."
 				self.student[FormKeys.status()] = message
 				self.student[FormKeys.app_forwarded()] = "Y"
+				logger.info("----------------Application got forwarded---------------")
 			else:
 				message = "Unable to forward application."
 				self.student[FormKeys.status()] = message
 				self.student[FormKeys.app_forwarded()] = "N"
-			logger.info(message)
+			logger.info("Application status: %s", message)
 			self.students[self.current_student_index] = self.student
 			self.skip_to_next_valid()
 			url = self.url_provider.get_institute_forward_url(self.student.get(FormKeys.std(), ""))

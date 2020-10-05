@@ -228,11 +228,12 @@ class VerifyAppSpider(BaseSpider):
 				message = "Application successfully verified.."
 				self.student[FormKeys.status()] = message
 				self.student[FormKeys.app_verified()] = "Y"
+				logger.info("----------------Application got verified---------------")
 			else:
 				message = "Unable to verify application."
 				self.student[FormKeys.status()] = message
 				self.student[FormKeys.app_verified()] = "N"
-			logger.info(message)
+			logger.info("Application status: %s", message)
 			self.students[self.current_student_index] = self.student
 			self.skip_to_next_valid()
 			url = self.url_provider.get_institute_verify_url(self.student.get(FormKeys.std(), ""))

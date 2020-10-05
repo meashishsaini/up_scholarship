@@ -206,11 +206,12 @@ class ReceiveAppSpider(BaseSpider):
 				message = "Application successfully received.."
 				self.student[FormKeys.status()] = message
 				self.student[FormKeys.app_received()] = "Y"
+				logger.info("----------------Application got received---------------")
 			else:
 				message = "Unable to receive application."
 				self.student[FormKeys.status()] = message
 				self.student[FormKeys.app_received()] = "N"
-			logger.info(message)
+			logger.info("Application status: %s", message)
 			self.students[self.current_student_index] = self.student
 			self.skip_to_next_valid()
 			url = self.url_provider.get_institute_receive_url(self.student.get(FormKeys.std(), ""))
