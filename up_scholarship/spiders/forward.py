@@ -23,6 +23,7 @@ class ForwardAppSpider(BaseSpider):
 		skip_config.disatisfy_criterias = [FormKeys.app_forwarded()]
 		skip_config.satisfy_criterias = [FormKeys.app_verified()]
 		super().__init__(ForwardAppSpider, skip_config, *args, **kwargs)
+		self.cd.current_form_set = FormSets.two
 
 	# self.board = CodeFileReader(self.cd.board_file)
 
@@ -42,40 +43,11 @@ class ForwardAppSpider(BaseSpider):
 			url = self.url_provider.get_institute_login_url(self.student.get(FormKeys.std(), ""))
 			yield scrapy.Request(url=url, callback=self.get_district, dont_filter=True, errback=self.errback_next)
 		else:
-			# Extract hf for password
-			hf = response.xpath("//*[@id='" + FormKeys.hf(FormSets.two) + "']/@value").extract_first()
+			std_category = utl.get_std_category(self.student.get(FormKeys.std()))
 			form_data = {
-				FormKeys.event_target()					: FormKeys.district(form=True),
+				FormKeys.event_target()					: FormKeys.institute_login_type_radio_button(std_category=std_category),
 				FormKeys.district(form=True)			: self.district.get_code("rampur"),
-				FormKeys.hf(FormSets.two, form=True)	: hf
-			}
-			request = scrapy.FormRequest.from_response(
-				response,
-				formdata=form_data,
-				callback=self.get_school_type,
-				errback=self.errback_next,
-				dont_filter=True,
-				dont_click=True
-			)
-			yield request
-
-	def get_school_type(self, response):
-		""" Fill the school district.
-				Keyword arguments:
-				response -- previous scrapy response.
-		"""
-		logger.info("In get school. Last URL: %s", response.url)
-		if self.process_errors(response, [TestStrings.error]):
-			url = self.url_provider.get_institute_login_url(self.student.get(FormKeys.std(), ""))
-			yield scrapy.Request(url=url, callback=self.get_district, dont_filter=True, errback=self.errback_next)
-		else:
-			# Extract hf for password
-			hf = response.xpath("//*[@id='" + FormKeys.hf(FormSets.two) + "']/@value").extract_first()
-			form_data = {
-				FormKeys.event_target()					: FormKeys.school_type(form=True),
-				FormKeys.district(form=True)			: self.district.get_code("rampur"),
-				FormKeys.school_type(form=True)			: self.school_type,
-				FormKeys.hf(FormSets.two, form=True)	: hf
+				FormKeys.institute_login_type_radio_button(form=True): FormKeys.institute_login_radio_button_value(std_category=std_category),
 			}
 			request = scrapy.FormRequest.from_response(
 				response,
@@ -103,10 +75,15 @@ class ForwardAppSpider(BaseSpider):
 			# Get old response after getting captcha
 			response = response.meta["old_response"]
 
-			form_data = self.get_login_institute_data(
+			hf = response.xpath("//*[@id='" + FormKeys.hf() + "']/@value").extract_first()
+
+			form_data = utl.get_login_institute_data(
 				self.student,
 				captcha_value,
-				self.school_type)
+				hf,
+				self.district,
+				self.institute)
+			logger.info("Login form data: %s", form_data)
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata=form_data,
@@ -147,6 +124,7 @@ class ForwardAppSpider(BaseSpider):
 				FormKeys.registration_number_search(form=True)	: self.student.get(FormKeys.reg_no(), ""),
 				FormKeys.search_button(form=True)				: FormKeys.search_button()
 			}
+			logger.info("Search form data: %s", form_data)
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata=form_data,
@@ -163,13 +141,14 @@ class ForwardAppSpider(BaseSpider):
 			response -- previous scrapy response.
 		"""
 		logger.info("In forward. Last URL: %s", response.url)
-		app_id = response.xpath("//*[@id='%s']//text()" % FormKeys.first_forward_app_id())
+		std_category = utl.get_std_category(self.student.get(FormKeys.std()))
+		app_id = response.xpath("//*[@id='%s']//text()" % FormKeys.first_forward_app_id(std_category))
 		if self.process_errors(response, [TestStrings.error]):
 			url = self.url_provider.get_institute_login_url(self.student.get(FormKeys.std(), ""))
 			yield scrapy.Request(url=url, callback=self.get_district, dont_filter=True, errback=self.errback_next)
 		elif not app_id and app_id.extract_first() != self.student[FormKeys.reg_no()]:
 			message = "Application registration number not found."
-			logger.info(message)
+			logger.info("Application status: %s", message)
 			self.student[FormKeys.status()] = message
 			self.students[self.current_student_index] = self.student
 			self.skip_to_next_valid()
@@ -178,7 +157,10 @@ class ForwardAppSpider(BaseSpider):
 				url=url, callback=self.search_application_number, dont_filter=True, errback=self.errback_next)
 		else:
 			form_data = {
-				FormKeys.application_forward_agree(form=True): FormKeys.application_forward_agree(),
+				FormKeys.application_forward_marks_total(std_category): self.student.get(FormKeys.lastyear_total_marks()),
+				FormKeys.application_forward_marks_obtained(std_category): self.student.get(FormKeys.lastyear_obtain_marks()),
+				FormKeys.application_forward_attendance(std_category): "75",
+				FormKeys.application_forward_agree(form=True, std_category=std_category): FormKeys.application_forward_agree(),
 				FormKeys.application_forward_button(form=True): FormKeys.application_forward_button()
 			}
 			request = scrapy.FormRequest.from_response(
@@ -191,34 +173,13 @@ class ForwardAppSpider(BaseSpider):
 			)
 			yield request
 
-	def submit_forward_application(self, response):
-		""" Forward application if found.
-			Keyword arguments:
-			response -- previous scrapy response.
-		"""
-		if self.process_errors(response, [TestStrings.error]):
-			url = self.url_provider.get_institute_login_url(self.student.get(FormKeys.std(), ""))
-			yield scrapy.Request(url=url, callback=self.get_district, dont_filter=True, errback=self.errback_next)
-		else:
-			form_data = {
-				FormKeys.application_forward_agree(form=True): FormKeys.application_forward_agree(),
-				FormKeys.application_forward_button(form=True): FormKeys.application_forward_button()
-			}
-			request = scrapy.FormRequest.from_response(
-				response,
-				formdata=form_data,
-				callback=self.parse,
-				errback=self.errback_next,
-				dont_filter=True
-			)
-			yield request
-
 	def parse(self, response):
 		""" Check if application is verified.
 					Keyword arguments:
 					response -- previous scrapy response.
 		"""
 		logger.info("In parse. Last URL: %s", response.url)
+		utl.save_file_with_name(self.student, response, self.spider_name, str(datetime.today().year), is_debug=True, extra="forward")
 		scripts = response.xpath("//script/text()").extract()
 		application_forwarded = scripts and scripts[0].find(TestStrings.application_forwarded) != -1
 		if not application_forwarded and self.process_errors(response, [TestStrings.error]):
@@ -253,24 +214,4 @@ class ForwardAppSpider(BaseSpider):
 			request = scrapy.Request(url=captcha_url, callback=callback, dont_filter=True, errback=self.errback_next)
 			request.meta["old_response"] = response
 			yield request
-
-	def get_login_institute_data(self, student: dict, captcha_value: str, school_type: str) -> dict:
-		""" Create and return the form data
-					Keyword arguments:
-					student -- student whose details needed to be filled.
-					captcha_value -- captcha value to be used in filling form.
-					Returns: dict
-				"""
-		password_hash, hd_text_hash = utl.get_login_institute_password("jlASG78g##cF")
-		form_data = {
-			FormKeys.district(form=True): self.district.get_code("rampur"),
-			FormKeys.school_type(form=True): school_type,
-			FormKeys.school_name(form=True): self.institute.get_code(self.student.get(FormKeys.institute())),
-			FormKeys.text_password(form=True): password_hash,
-			FormKeys.captcha_value(form=True): captcha_value,
-			FormKeys.institute_login_button(form=True): FormKeys.institute_login_button(),
-			FormKeys.hd_pass_text(form=True): hd_text_hash
-
-		}
-		return form_data
 

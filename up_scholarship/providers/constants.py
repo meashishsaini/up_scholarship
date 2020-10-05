@@ -29,7 +29,7 @@ class TestStrings:
 	final_print = 'finalprint'
 	show_image = 'showimage'
 	final_disclaimer = 'finaldisclaimer'
-	institute_login_success = 'prematric/index'
+	institute_login_success = 'CollegeProcess/index.aspx'
 	application_received = 'Application Recieved Successfully !'
 	application_verified = 'Application Verified Successfully !'
 	application_forwarded = '1  Records Forwarded Successfully !'
@@ -645,6 +645,26 @@ class FormKeys:
 			return cls.prefix + 'btn_captcha'
 		else:
 			return 'Log+In'
+	@classmethod
+	def institute_login_type_radio_button(cls, form=False, std_category: StdCategory = StdCategory.unknown):
+		if form:
+			return cls.prefix + 'RadioButtonList1'
+		else:
+			if std_category == StdCategory.pre:
+				return cls.institute_login_type_radio_button(form=True) + "$0"
+			elif std_category == StdCategory.post:
+				return cls.institute_login_type_radio_button(form=True) + "$1"
+			else:
+				return cls.institute_login_type_radio_button(form=True) + "$2"
+
+	@classmethod
+	def institute_login_radio_button_value(cls, std_category: StdCategory = StdCategory.unknown ):
+		if std_category == StdCategory.pre:
+			return "11"
+		elif std_category == StdCategory.post:
+			return "12"
+		else:
+			return "13"
 
 	@classmethod
 	def hd_pass_text(cls, form=False):
@@ -715,50 +735,90 @@ class FormKeys:
 		return 'ContentPlaceHolder1_ErrorLbl'
 
 	@classmethod
-	def first_app_id(cls):
-		return 'ContentPlaceHolder1_chkgrid_hidApp_Id_0'
+	def first_app_id(cls, std_category: StdCategory = StdCategory.unknown):
+		base = 'ctl00_ContentPlaceHolder1_'
+		if std_category == StdCategory.pre:
+			return base + 'chkgridPre_ctl02_hidApp_Id'
+		else:
+			return base + 'chkgridPost_ctl02_hidApp_Id'
 
 	@classmethod
-	def first_forward_app_id(cls):
-		return 'ContentPlaceHolder1_chkgrid_HyperLink1_0'
+	def first_forward_app_id(cls, std_category: StdCategory = StdCategory.unknown):
+		base = 'ctl00_ContentPlaceHolder1_'
+		if std_category == StdCategory.pre:
+			return base + 'chkgridPre_ctl02_HyperLink1'
+		else:
+			return base + 'chkgridPre_ctl02_HyperLink1'
 
 	@classmethod
-	def application_receive_button(cls, form=False):
+	def application_receive_button(cls, form=False, std_category: StdCategory = StdCategory.unknown):
 		if form:
-			return cls.prefix + 'chkgrid$ctl02$lnkbtnRecieve'
+			if std_category == StdCategory.pre:
+				return cls.prefix + 'chkgridPre$ctl02$lnkbtnRecieve'
+			else:
+				return cls.prefix + 'chkgridPost$ctl02$lnkbtnRecieve'
 		else:
 			return 'Recieve'
 
 	@classmethod
-	def application_receive_agree(cls, form=False):
+	def application_receive_agree(cls, form=False, std_category: StdCategory = StdCategory.unknown):
 		if form:
-			return cls.prefix + 'chkgrid$ctl02$chkIs'
+			if std_category == StdCategory.pre:
+				return cls.prefix + 'chkgridPre$ctl02$chkIs'
+			else:
+				return cls.prefix + 'chkgridPost$ctl02$chkIs'
 		else:
 			return 'on'
 	@classmethod
-	def application_forward_agree(cls, form=False):
+	def application_forward_agree(cls, form=False, std_category: StdCategory = StdCategory.unknown):
 		if form:
-			return cls.prefix + 'chkgrid$ctl02$chkSelect'
+			if std_category == StdCategory.pre:
+				return cls.prefix + 'chkgridPre$ctl02$chkSelect'
+			else:
+				return cls.prefix + 'chkgridPost$ctl02$chkSelect'
 		else:
 			return 'on'
-
+	@classmethod
+	def application_forward_marks_obtained(cls, std_category: StdCategory = StdCategory.unknown):
+		if std_category == StdCategory.pre:
+			return cls.prefix + 'chkgridPre$ctl02$txt_obtained'
+		else:
+				return cls.prefix + 'chkgridPost$ctl02$txt_obtained'
+	@classmethod
+	def application_forward_marks_total(cls, std_category: StdCategory = StdCategory.unknown):
+		if std_category == StdCategory.pre:
+			return cls.prefix + 'chkgridPre$ctl02$txt_Total'
+		else:
+				return cls.prefix + 'chkgridPost$ctl02$txt_Total'
+	@classmethod
+	def application_forward_attendance(cls, std_category: StdCategory = StdCategory.unknown):
+		if std_category == StdCategory.pre:
+			return cls.prefix + 'chkgridPre$ctl02$txt_att'
+		else:
+				return cls.prefix + 'chkgridPost$ctl02$txt_att'
 	@classmethod
 	def application_forward_button(cls, form=False):
 		if form:
-			return cls.prefix + 'Button1'
+			return cls.prefix + 'Button2'
 		else:
 			return 'Forward+Selected+Applications'
 
 	@classmethod
-	def application_verify_status(cls, form=False):
+	def application_verify_status(cls, form=False, std_category: StdCategory = StdCategory.unknown):
 		if form:
-			return cls.prefix + 'chkgrid$ctl02$ddl_VRstatus'
+			if std_category == StdCategory.pre:
+				return cls.prefix + 'chkgridPre$ctl02$ddl_VRstatus'
+			else:
+				return cls.prefix + 'chkgridPost$ctl02$ddl_VRstatus'
 		else:
 			return 'V'
 
 	@classmethod
-	def application_verify_link_button(cls):
-		return cls.prefix + 'chkgrid$ctl02$LinkButton1'
+	def application_verify_link_button(cls, std_category: StdCategory = StdCategory.unknown):
+		if std_category == StdCategory.pre:
+				return cls.prefix + 'chkgridPre$ctl02$LinkButton1'
+		else:
+			return cls.prefix + 'chkgridPost$ctl02$LinkButton1'
 
 	@classmethod
 	def app_filled(cls):
@@ -817,7 +877,7 @@ class FormKeys:
 		return cls.prefix + 'HandiType'
 
 	@classmethod
-	def hf(cls, current_form_set, form=False):
+	def hf(cls, form=False, current_form_set: FormSets = FormSets.one):
 		if form:
 			return cls.prefix + 'hf'
 		else:

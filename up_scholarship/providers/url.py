@@ -185,23 +185,23 @@ class UrlProviders:
 			app_id)
 
 	def get_institute_login_url(self, std: str):
-		pre_login_url = "PreMatricLogin.aspx"
-		post_login_url = "Inst_login.aspx"
+		pre_login_url = "Inst_login_SM.aspx"
+		post_login_url = "Inst_login_SM.aspx"
 		return self._make_other_url(False, std, pre_login_url, pre_login_url, post_login_url, post_login_url)
 
 	def get_institute_receive_url(self, std: str):
-		pre_url = "prematric/recieve_app.aspx"
-		post_url = "postmatric/recieve_app.aspx"
+		pre_url = "CollegeProcess/recieve_app.aspx"
+		post_url = "CollegeProcess/recieve_app.aspx"
 		return self._make_other_url(False, std, pre_url, pre_url, post_url, post_url)
 
 	def get_institute_verify_url(self, std: str):
-		pre_url = "prematric/Verify_app.aspx"
-		post_url = "prematric/Verify_app.aspx"
+		pre_url = "CollegeProcess/Collegeverification.aspx"
+		post_url = "CollegeProcess/Collegeverification.aspx"
 		return self._make_other_url(False, std, pre_url, pre_url, post_url, post_url)
 
 	def get_institute_forward_url(self, std: str):
-		pre_url = "prematric/Fwd_app.aspx"
-		post_url = "prematric/Fwd_app.aspx"
+		pre_url = "CollegeProcess/verification.aspx"
+		post_url = "CollegeProcess/verification.aspx"
 		return self._make_other_url(False, std, pre_url, pre_url, post_url, post_url)
 	
 	def get_aadhaar_auth_url(self, std: str, app_id: str, is_renewal: bool):

@@ -14,7 +14,6 @@ class VerifyAppSpider(BaseSpider):
 	common_required_keys = [
 		FormKeys.skip(), FormKeys.std(), FormKeys.name(), FormKeys.institute(), FormKeys.final_submitted(),
 		FormKeys.reg_year(), FormKeys.app_received(), FormKeys.religion(), FormKeys.app_verified()]
-	school_type = "R"  # our school type
 
 	def __init__(self, *args, **kwargs):
 		""" Load student"s file and init variables"""
@@ -23,6 +22,7 @@ class VerifyAppSpider(BaseSpider):
 		skip_config.disatisfy_criterias = [FormKeys.app_verified()]
 		skip_config.satisfy_criterias = [FormKeys.app_received()]
 		super().__init__(VerifyAppSpider, skip_config, *args, **kwargs)
+		self.cd.current_form_set = FormSets.two
 
 	def start_requests(self):
 		""" Get institute login page"""
@@ -40,40 +40,11 @@ class VerifyAppSpider(BaseSpider):
 			url = self.url_provider.get_institute_login_url(self.student.get(FormKeys.std(), ""))
 			yield scrapy.Request(url=url, callback=self.get_district, dont_filter=True, errback=self.errback_next)
 		else:
-			# Extract hf for password
-			hf = response.xpath("//*[@id='" + FormKeys.hf(FormSets.two) + "']/@value").extract_first()
+			std_category = utl.get_std_category(self.student.get(FormKeys.std()))
 			form_data = {
-				FormKeys.event_target()					: FormKeys.district(form=True),
+				FormKeys.event_target()					: FormKeys.institute_login_type_radio_button(std_category=std_category),
 				FormKeys.district(form=True)			: self.district.get_code("rampur"),
-				FormKeys.hf(FormSets.two, form=True)	: hf
-			}
-			request = scrapy.FormRequest.from_response(
-				response,
-				formdata=form_data,
-				callback=self.get_school_type,
-				errback=self.errback_next,
-				dont_filter=True,
-				dont_click=True
-			)
-			yield request
-
-	def get_school_type(self, response):
-		""" Fill the school district.
-				Keyword arguments:
-				response -- previous scrapy response.
-		"""
-		logger.info("In get school. Last URL: %s", response.url)
-		if self.process_errors(response, [TestStrings.error]):
-			url = self.url_provider.get_institute_login_url(self.student.get(FormKeys.std(), ""))
-			yield scrapy.Request(url=url, callback=self.get_district, dont_filter=True, errback=self.errback_next)
-		else:
-			# Extract hf for password
-			hf = response.xpath("//*[@id='" + FormKeys.hf(FormSets.two) + "']/@value").extract_first()
-			form_data = {
-				FormKeys.event_target()					: FormKeys.school_type(form=True),
-				FormKeys.district(form=True)			: self.district.get_code("rampur"),
-				FormKeys.school_type(form=True)			: self.school_type,
-				FormKeys.hf(FormSets.two, form=True)	: hf
+				FormKeys.institute_login_type_radio_button(form=True): FormKeys.institute_login_radio_button_value(std_category=std_category),
 			}
 			request = scrapy.FormRequest.from_response(
 				response,
@@ -101,10 +72,15 @@ class VerifyAppSpider(BaseSpider):
 			# Get old response after getting captcha
 			response = response.meta["old_response"]
 
-			form_data = self.get_login_institute_data(
+			hf = response.xpath("//*[@id='" + FormKeys.hf() + "']/@value").extract_first()
+
+			form_data = utl.get_login_institute_data(
 				self.student,
 				captcha_value,
-				self.school_type)
+				hf,
+				self.district,
+				self.institute)
+			logger.info("Login form data: %s", form_data)
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata=form_data,
@@ -145,6 +121,7 @@ class VerifyAppSpider(BaseSpider):
 				FormKeys.registration_number_search(form=True): self.student.get(FormKeys.reg_no(), ""),
 				FormKeys.search_button(form=True): FormKeys.search_button()
 			}
+			logger.info("Search form data: %s", form_data)
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata=form_data,
@@ -161,13 +138,14 @@ class VerifyAppSpider(BaseSpider):
 			response -- previous scrapy response.
 		"""
 		logger.info("In verify. Last URL: %s", response.url)
-		app_id = response.xpath("//*[@id='%s']//text()" % FormKeys.first_app_id())
+		std_category = utl.get_std_category(self.student.get(FormKeys.std()))
+		app_id = response.xpath("//*[@id='%s']//text()" % FormKeys.first_app_id(std_category))
 		if self.process_errors(response, [TestStrings.error]):
 			url = self.url_provider.get_institute_login_url(self.student.get(FormKeys.std(), ""))
 			yield scrapy.Request(url=url, callback=self.get_district, dont_filter=True, errback=self.errback_next)
 		elif not app_id and app_id.extract_first() != self.student[FormKeys.reg_no()]:
 			message = "Application registration number not found."
-			logger.info(message)
+			logger.info("Application status: %s", message)
 			self.student[FormKeys.status()] = message
 			self.students[self.current_student_index] = self.student
 			self.skip_to_next_valid()
@@ -176,9 +154,9 @@ class VerifyAppSpider(BaseSpider):
 				url=url, callback=self.search_application_number, dont_filter=True, errback=self.errback_next)
 		else:
 			form_data = {
-				FormKeys.application_verify_status(form=True):	FormKeys.application_verify_status()
+				FormKeys.application_verify_status(form=True, std_category=std_category):	FormKeys.application_verify_status()
 			}
-			logger.info(form_data)
+			logger.info("Verify form data: %s", form_data)
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata=form_data,
@@ -194,22 +172,23 @@ class VerifyAppSpider(BaseSpider):
 			Keyword arguments:
 			response -- previous scrapy response.
 		"""
-		utl.save_file_with_name(self.student, response, self.spider_name, str(datetime.today().year), is_debug=True, extra="verify")
 		if self.process_errors(response, [TestStrings.error]):
 			url = self.url_provider.get_institute_login_url(self.student.get(FormKeys.std(), ""))
 			yield scrapy.Request(url=url, callback=self.get_district, dont_filter=True, errback=self.errback_next)
 		else:
+			std_category = utl.get_std_category(self.student.get(FormKeys.std()))
 			form_data = {
-				FormKeys.event_target(): FormKeys.application_verify_link_button()
+				FormKeys.event_target(): FormKeys.application_verify_link_button(std_category)
 			}
+			logger.info("Submit verify form data: %s", form_data)
 			request = scrapy.FormRequest.from_response(
 				response,
 				formdata=form_data,
 				callback=self.parse,
 				errback=self.errback_next,
-				dont_filter=True
+				dont_filter=True,
+				dont_click=True
 			)
-			print(form_data)
 			yield request
 
 	def parse(self, response):
@@ -218,6 +197,7 @@ class VerifyAppSpider(BaseSpider):
 					response -- previous scrapy response.
 		"""
 		logger.info("In parse. Last URL: %s", response.url)
+		utl.save_file_with_name(self.student, response, self.spider_name, str(datetime.today().year), is_debug=True, extra="verify")
 		scripts = response.xpath("//script/text()").extract()
 		application_verified = scripts and scripts[0].find(TestStrings.application_verified) != -1
 		if not application_verified and self.process_errors(response, [TestStrings.error]):
@@ -225,7 +205,7 @@ class VerifyAppSpider(BaseSpider):
 			yield scrapy.Request(url=url, callback=self.get_district, dont_filter=True, errback=self.errback_next)
 		else:
 			if application_verified:
-				message = "Application successfully verified.."
+				message = "Application successfully verified."
 				self.student[FormKeys.status()] = message
 				self.student[FormKeys.app_verified()] = "Y"
 				logger.info("----------------Application got verified---------------")
@@ -253,22 +233,3 @@ class VerifyAppSpider(BaseSpider):
 			request.meta["old_response"] = response
 			yield request
 
-	def get_login_institute_data(self, student: dict, captcha_value: str, school_type: str) -> dict:
-		""" Create and return the form data
-					Keyword arguments:
-					student -- student whose details needed to be filled.
-					captcha_value -- captcha value to be used in filling form.
-					Returns: dict
-				"""
-		password_hash, hd_text_hash = utl.get_login_institute_password("jlASG78g##cF")
-		form_data = {
-			FormKeys.district(form=True): self.district.get_code("rampur"),
-			FormKeys.school_type(form=True): school_type,
-			FormKeys.school_name(form=True): self.institute.get_code(self.student.get(FormKeys.institute())),
-			FormKeys.text_password(form=True): password_hash,
-			FormKeys.captcha_value(form=True): captcha_value,
-			FormKeys.institute_login_button(form=True): FormKeys.institute_login_button(),
-			FormKeys.hd_pass_text(form=True): hd_text_hash
-
-		}
-		return form_data

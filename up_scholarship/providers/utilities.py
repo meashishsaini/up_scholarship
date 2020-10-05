@@ -108,15 +108,20 @@ def get_login_form_password(password: str, hf: str = ''):
 	return pwd_hash, rnd_hash
 
 
-def get_login_institute_password(password: str):
+def get_login_institute_password(password: str, hf: str = ''):
 	"""	Password is hashed using sha512 and hd text using md5
 
 		Keyword arguments:
 		password -- use this password to generate hash
 		return pwd hash and ht text hash
 	"""
-	pwd_hash = hashlib.sha512(password.encode('utf-8')).hexdigest()
-	hd_hash = hashlib.md5(password.encode('utf-8')).hexdigest()
+	rnd = hf.encode('utf-8')
+	password = password.encode('utf-8')
+	rnd_hash_sha512 = hashlib.sha512(rnd).hexdigest()
+	rnd_hash_md5 = hashlib.md5(rnd).hexdigest()
+
+	pwd_hash = rnd_hash_sha512 + hashlib.sha512(password).hexdigest()
+	hd_hash = rnd_hash_md5 + hashlib.md5(password).hexdigest()
 	return pwd_hash, hd_hash
 
 
@@ -288,3 +293,22 @@ def resize_to_fit(image, width, height):
 
 	# return the pre-processed image
 	return image
+def get_login_institute_data(student: dict, captcha_value: str, hf: str, district, institute) -> dict:
+	""" Create and return the form data
+				Keyword arguments:
+				student -- student whose details needed to be filled.
+				captcha_value -- captcha value to be used in filling form.
+				Returns: dict
+			"""
+	password_hash, hd_text_hash = get_login_institute_password("jlASG78g##cF", hf)
+	std_category = get_std_category(student.get(FormKeys.std()))
+	form_data = {
+		FormKeys.district(form=True)				: district.get_code("rampur"),
+		FormKeys.institute(form=True)				: institute.get_code(student.get(FormKeys.institute())),
+		FormKeys.institute_login_type_radio_button(form=True)	: FormKeys.institute_login_radio_button_value(std_category=std_category), 
+		FormKeys.text_password(form=True)			: password_hash,
+		FormKeys.captcha_value(form=True)			: captcha_value,
+		FormKeys.institute_login_button(form=True)	: FormKeys.institute_login_button(),
+		FormKeys.hd_pass_text(form=True)			: hd_text_hash,
+	}
+	return form_data
