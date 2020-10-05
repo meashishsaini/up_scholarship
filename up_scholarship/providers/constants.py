@@ -789,10 +789,6 @@ class FormKeys:
 		return 'final_printed'
 
 	@classmethod
-	def final_printed(cls):
-		return 'final_printed'
-
-	@classmethod
 	def is_minority(cls):
 		return 'is_minority'
 
