@@ -244,7 +244,7 @@ def get_login_form_data(student: dict, hf: str, is_renewal: bool, captcha_value:
 		keys.password(form=True)		: hashed_password,
 		keys.captcha_value(form=True)	: captcha_value,
 		keys.login(form=True)			: 'Submit',
-		keys.hf(form_set, form=True)	: hashed_hf,
+		keys.hf(form=True, current_form_set=form_set): hashed_hf,
 		keys.renewal_button(form=True)	: '2' if is_renewal else '1'}
 	if get_std_category(student.get(keys.std(), '')) == StdCategory.pre:
 		form_data[keys.login_type(form=True)] = '1'
