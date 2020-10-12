@@ -216,8 +216,9 @@ class FinalSubmitDataSpider(BaseSpider):
 			if income_cert_no_status is None or str(income_cert_no_status).lower() != TestStrings.matched:
 				status += "Income cert no status: " + str(income_cert_no_status) + "; "
 				ok = False
-			if religion != self.religion.get_code("muslim") and (
-					caste_cert_no_status is None or str(caste_cert_no_status).lower() != TestStrings.matched):
+			if religion != self.religion.get_code("muslim") and \
+				self.student.get(FormKeys.caste()).lower() != "gen" and \
+				(caste_cert_no_status is None or str(caste_cert_no_status).lower() != TestStrings.matched):
 				status += "Caste cert no status: " + str(caste_cert_no_status) + "; "
 				ok = False
 			if annual_income_status is None or str(annual_income_status).lower() != TestStrings.matched:
