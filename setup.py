@@ -5,6 +5,7 @@ def readme():
 		return f.read()
 
 install_requires = [
+	"pywin32",
 	"scrapy",
 	"openpyxl",
 	"imutils",

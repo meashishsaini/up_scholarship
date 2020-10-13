@@ -1,9 +1,11 @@
 from up_scholarship.providers.student_file import StudentFile
 from up_scholarship.providers.constants import CommonData, FormKeys, StdCategory
 from up_scholarship.providers import utilities as utl
+from up_scholarship.providers.file_name import FileName
+
 import os
 import logging
-from up_scholarship.providers.file_name import FileName
+from win32 import win32api
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +14,7 @@ logger = logging.getLogger(__name__)
 def print_final():
 	cd = CommonData()
 	students = StudentFile().read_file(cd.students_in_file, cd.file_in_type)
-	filename = FileName("final_submit")
+	filename = FileName("finalsubmit")
 
 	no_of_students = len(students)
 	x = 0
