@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # 10 - 85
 options_9_10 = {
 	'encoding': 'utf-8',
-	'margin-bottom': '35',
+	'margin-bottom': '25',
 	'zoom': '1.1',
 	'page-size': 'A4'}
 options_11 = {
@@ -32,7 +32,7 @@ options_12 = {
 def convert2pdf():
 	cd = CommonData()
 	students = StudentFile().read_file(cd.students_in_file, cd.file_in_type)
-	filename = FileName("final_submit")
+	filename = FileName("finalsubmit")
 	for student in students:
 		if student[FormKeys.skip()] == 'Y' or student[FormKeys.final_submitted()] == 'N':
 			continue
@@ -51,10 +51,16 @@ def convert2pdf():
 			options = options_11
 		else:
 			options = options_12
+		out_string = f"{student[FormKeys.name()]}.{student[FormKeys.father_name()]}.{student[FormKeys.mother_name()]} of std {student[FormKeys.std()]}"
+		logger.info("Processing: %s", out_string)
+		logger.info("Input filename: %s", filename_in)
+		logger.info("Output filename: %s", filename_out)
+		print("Processing:", out_string)
 		try:
 			pdfkit.from_file(filename_in, filename_out, options=options)
+			print("Processing success")
 		except IOError as err:
 			logger.error(err)
+			print("Processing failed:", err)
 		
-		data = student[FormKeys.name()] + '.' + student[FormKeys.father_name()] + '.' + student[FormKeys.mother_name()]
-		logger.info(data + ' of std ' + student[FormKeys.std()] + ' skip: ' + student[FormKeys.skip()])
+		
