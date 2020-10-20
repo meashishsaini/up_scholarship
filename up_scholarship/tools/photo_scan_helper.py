@@ -4,7 +4,7 @@ from scan_helper.scan import ScanArea, get_scanned_image
 from scan_helper.align_faces import align_face
 from scan_helper.resize import resize
 from datetime import datetime
-import cv2
+from cv2 import cv2
 import os
 from pathlib import Path
 import logging
@@ -56,27 +56,28 @@ def scan_photos():
 						except Exception as err:
 							logger.error(err)
 							print("Unable to find faces.")
-						try:
-							for i in range(len(images)):
-								cv_image = cv2.cvtColor(np.array(images[i]), cv2.COLOR_RGB2BGR)
-								cv2.imshow(f"{student[FormKeys.name()]} (Choice {i+1})", cv_image)
-							cv2.waitKey(0)
-							choice = input(f"Enter your choice? <{0}-{len(images)-1}> ")
-							choice = int(choice)
-							if choice < 0 or choice > len(images):
-								choice = 0
-							image = images[choice]
-							
-							image.save(filename, "JPEG")
+						else:
+							try:
+								for i in range(len(images)):
+									cv_image = cv2.cvtColor(np.array(images[i]), cv2.COLOR_RGB2BGR)
+									cv2.imshow(f"{student[FormKeys.name()]} (Choice {i})", cv_image)
+								cv2.waitKey(0)
+								choice = input(f"Enter your choice? <{0}-{len(images)-1}> ")
+								choice = int(choice)
+								if choice < 0 or choice > len(images):
+									choice = 0
+								image = images[choice]
+								
+								image.save(filename, "JPEG")
 
-							# resize image
-							abs_filename = os.path.abspath(filename)
-							metadata = os.stat(abs_filename)
-							if metadata.st_size > file_max_size * 1000:
-								resize(abs_filename, file_max_size)
-						except Exception as e:
-							logger.error(e)
-							print("Unable to save image file.")
+								# resize image
+								abs_filename = os.path.abspath(filename)
+								metadata = os.stat(abs_filename)
+								if metadata.st_size > file_max_size * 1000:
+									resize(abs_filename, file_max_size)
+							except Exception as e:
+								logger.error(e)
+								print("Unable to save image file.")
 						input("Press Enter to continue...")
 			if not found:
 				print("Unable to find UID.")
