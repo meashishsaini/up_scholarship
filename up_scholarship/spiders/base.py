@@ -213,7 +213,7 @@ class BaseSpider(scrapy.Spider):
 						# We can't renew if there is more than one year gap between last scholarship
 						logger.warning("Scholarship can't be renewed. Reg Year: %s", student_reg_year)
 						continue
-					if student.get(FormKeys.std()) != "11" or student.get(FormKeys.std()) != "09":
+					if student.get(FormKeys.std()) != "11" and student.get(FormKeys.std()) != "09":
 						# Renew can only be done for 9th and 11th
 						logger.warning("Scholarship can't be renewed. Current std: %s", student.get(FormKeys.std()))
 						continue
