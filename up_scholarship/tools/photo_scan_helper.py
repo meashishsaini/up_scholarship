@@ -1,6 +1,6 @@
 from up_scholarship.providers.student_file import StudentFile
 from up_scholarship.providers.constants import CommonData, FormKeys
-from scan_helper.scan import ScanArea, get_scanned_image
+from scan_helper.scan import get_scanned_image
 from scan_helper.align_faces import align_face
 from scan_helper.resize import resize
 from datetime import datetime

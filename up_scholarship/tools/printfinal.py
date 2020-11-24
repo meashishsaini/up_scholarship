@@ -1,5 +1,5 @@
 from up_scholarship.providers.student_file import StudentFile
-from up_scholarship.providers.constants import CommonData, FormKeys, StdCategory
+from up_scholarship.providers.constants import CommonData, FormKeys
 from up_scholarship.providers import utilities as utl
 from up_scholarship.providers.file_name import FileName
 

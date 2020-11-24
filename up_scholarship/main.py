@@ -1,6 +1,4 @@
 from scrapy.crawler import CrawlerProcess
-import os
-import sys
 import argparse
 
 def parse():

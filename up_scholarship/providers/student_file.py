@@ -3,7 +3,6 @@ from collections import OrderedDict
 import json
 from up_scholarship.providers.constants import StudentFileTypes
 
-
 class StudentFile:
 	def read_file(self, filename, file_type):
 		"""read the appropriate file using the file type"""

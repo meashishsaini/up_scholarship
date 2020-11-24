@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "up_scholarship"
+version = "0.4.0"
+description = "Scripts to automate filling UP scholarship forms."
+authors = ["Ashish Saini <sainiashish08@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/meashishsaini/up_scholarship"
+repository = "https://github.com/meashishsaini/up_scholarship"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.7",
+  "Topic :: Utilities",
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+scan-helper = {path = "../scan_helper", develop = true}
+pywin32 = "^300"
+Scrapy = "^2.4.1"
+openpyxl = "^3.0.5"
+imutils = "^0.5.3"
+opencv-contrib-python = "^4.4.0"
+tensorflow = "^2.3.1"
+requests = "^2.25.0"
+pdfkit = "^0.6.1"
+Pillow = "^8.0.1"
+pyperclip = "^1.8.1"
+rich = "^9.2.0"
+pycryptodome = "^3.9.9"
+python-dotenv = "^0.15.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+up_scholarship = "up_scholarship.main:parse"

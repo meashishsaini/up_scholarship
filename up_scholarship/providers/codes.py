@@ -1,7 +1,6 @@
 import json
 import logging
 
-
 class CodeFileReader:
 	_codes_map = {}
 

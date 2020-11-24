@@ -3,7 +3,7 @@ import scrapy
 import logging
 from datetime import datetime
 
-from up_scholarship.providers.constants import FormKeys, TestStrings, StdCategory, FormSets
+from up_scholarship.providers.constants import FormKeys, TestStrings
 from up_scholarship.spiders.base import BaseSpider, SkipConfig
 from up_scholarship.tools.solve_captcha_using_model import get_captcha_string
 from up_scholarship.providers import utilities as utl

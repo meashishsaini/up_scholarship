@@ -1,6 +1,5 @@
 from up_scholarship.providers import utilities as utl
 
-
 class FileName:
 	def __init__(self, name: str):
 		self.name = name

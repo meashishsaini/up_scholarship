@@ -1,13 +1,10 @@
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import logging
-import tensorflow as tf
 from tensorflow import keras
 from up_scholarship.providers.utilities import resize_to_fit
 import numpy as np
-import imutils
 import pickle
-import requests
 from cv2 import cv2
 
 MODEL_FILENAME = "up_scholarship/tools/captcha_models/captcha_model"
