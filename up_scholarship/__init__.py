@@ -18,3 +18,6 @@ root.setLevel(logging.DEBUG)
 
 # add handler to logger
 root.addHandler(rotating_file_handler)
+
+from dotenv import load_dotenv
+load_dotenv()

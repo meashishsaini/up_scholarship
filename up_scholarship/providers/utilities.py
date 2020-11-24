@@ -300,7 +300,7 @@ def get_login_institute_data(student: dict, captcha_value: str, hf: str, distric
 				captcha_value -- captcha value to be used in filling form.
 				Returns: dict
 			"""
-	password_hash, hd_text_hash = get_login_institute_password("jlASG78g##cF", hf)
+	password_hash, hd_text_hash = get_login_institute_password(os.getenv("INSTITUTE_PASSWORD"), hf)
 	std_category = get_std_category(student.get(FormKeys.std()))
 	form_data = {
 		FormKeys.district(form=True)				: district.get_code("rampur"),
